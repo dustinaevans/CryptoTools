@@ -62,3 +62,7 @@ Contributions are welcome. You can either contribute to the code or you can trai
 In either case, please fork the repo and create a new branch. Please include the text that you trained on in your branch.
 When your contributions are added, create a pull request.
 I will merge the request and if the changes are acceptable, I will then merge the branch into master.
+
+## Notes
+11/3/2019 3:00 PM CST
+This is currently partially broken. For some reason, the trainer will not match any dictionary words to text words. I really don't understand the reason for this yet but I'm sure it is something simple.
