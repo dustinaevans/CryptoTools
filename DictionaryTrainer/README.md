@@ -10,6 +10,12 @@ I am using this dictionary with the PatternFinder that is included in this repo.
 
 ```
 Apple -> 12234
+racecar -> 1234321
+Racecar -> 1234321
+
+Note1:
+The case of the letter makes no difference.
+If anyone sees a reason that the case is significant, please let me know in the issues.
 ```
 
 Then, checks a dictionary for any word that matches that pattern. (This is where the weights come in.)
