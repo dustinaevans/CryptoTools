@@ -159,5 +159,5 @@ class DictionaryTrainer:
             line = self.__dictionary.readline()
 
 
-trainer = DictionaryTrainer('/usr/share/dict/words','./the_lightning_thief.txt',False)
+trainer = DictionaryTrainer('/usr/share/dict/words','./the_lightning_thief.skip.txt',False)
 trainer.train()
