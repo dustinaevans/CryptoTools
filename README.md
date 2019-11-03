@@ -29,6 +29,8 @@ match 12345 -> tries
 match 12345 -> bread
 ```
 
+Note that these matches do not provide an guarantee that the word found IS the word you are looking for.
+
 ## DictionaryTrainer
 Trains a dictionary against a text file
 See the readme.md in DictionaryTrainer for additional information.
