@@ -125,4 +125,4 @@ dmypy.json
 .pyre/
 
 # Skip files
-.skip.txt
+.skip.*

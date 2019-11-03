@@ -6,12 +6,12 @@ import time
 (Mandatory) dictionaryFile: String
 (Mandatory) trainingText: String
 (Optional)  debug: Bool
-trainer = DataTrainer(dictionaryFile,trainingText,debug)
+trainer = DictionaryTrainer(dictionaryFile,trainingText,debug)
 trainer.train()
 
 TODO: Create a function that saves the dictionary as JSON
 """
-class DataTrainer:
+class DictionaryTrainer:
 
     def __init__(self,dictionary,trainingText,debug: bool=False):
         self.__matches = 0
@@ -159,5 +159,5 @@ class DataTrainer:
             line = self.__dictionary.readline()
 
 
-trainer = DataTrainer('/usr/share/dict/words','./the_lightning_thief.txt',False)
+trainer = DictionaryTrainer('/usr/share/dict/words','./the_lightning_thief.txt',False)
 trainer.train()
