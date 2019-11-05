@@ -45,7 +45,50 @@ def determineKeySize(data,minkeysize,maxkeysize):
             pass
     return retval
 
+def calculateIC(textbytes):
+    result = None
+    try:
+        text=""
+        if type(textbytes) == bytes:
+            text = textbytes.decode().lower()
+        elif type(textbytes) == str:
+            text = textbytes.lower()
+        else:
+            print("paramater is not of type str or bytes")
+            exit(1)
+        textlength = 0
+        result = []
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        for letter in text:
+            if letter in letters:
+                textlength += 1.00
+        for letter in letters:
+            temp = {'letter':letter,'count':0}
+            for char in text:
+                if char == letter:
+                    temp['count'] += 1.00
+            result.append(temp)
+        ic = 0
+        for thing in result:
+            print(thing)
+            count = thing['count']
+            ic += count*(count-1.00)
+        return ic/(textlength*(textlength-1.00))
+    except:
+        return None
+
+def transposeBlocks(textbytes,keysize):
+    if type(textbytes) == str:
+        textbytes = bytearray(textbytes,'utf8')
+    array1 = [[0]*keysize]*keysize
+    counter = 0
+    for char in textbytes:
+        array1[]
+        counter+=1
+
 keysize = 10
 file = b64DecodeFile('./6.txt')
 determinedSize = determineKeySize(file,2,40)
 print(determinedSize)
+print(calculateIC(""))
+transposeBlocks(file,determinedSize[0])
