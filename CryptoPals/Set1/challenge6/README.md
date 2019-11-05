@@ -27,4 +27,65 @@ def computeHammingDistance(string1,string2):
 
 So that was step 1. On to step 2. The site says that we need to take 2 portions of the ciphertext that are keysize in length (we haven't defined keysize yet) and compute the Hamming distance between them. We may end up having to a change our code because right now it only accepts strings. Let's start by choosing an arbitrary keysize, say... 10. `keysize=10` Now we need to make a function to base64 decode the file.
 
+```python
+def b64DecodeFile(filename):
+    from base64 import b64decode
+    fd = open(filename,'r')
+    b64 = fd.read()
+    b64d = b64decode(b64)
+    fd.close()
+    return b64d
+```
+
+This function opens the file, reads in the data, base64 decodes it and returns the decoded data. The next step is to get two pieces of that data that are keysize bytes long. So lets make a function that returns an array with two elements that consist of the two pieces of data.
+
+```python
+def getTwoPieces(keysize,data):
+    tempdata = bytearray('','utf8')
+    retval = [[],[]]
+    for count in range(keysize):
+        retval[0].append(data[count])
+        retval[1].append(data[count+10])
+    return retval/keysize
+```
+
+The next step is to compute the Hamming distance between the two pieces. I will now have to modify our Hamming distance function because it only takes in strings and we are trying to give it bytes. I just added the following:
+
+```python
+if type(string1)==str:
+      string1 = bytearray(string1,'utf8')
+      string2 = bytearray(string2,'utf8')
+```
+
+If it is as string, cast to bytearray, else we assume that it is a bytearray already. I almost forgot, we have to normalize this value by dividing by the keysize. I added this to the return statement.
+
+The next step is to determine the size of the key. So we will create a new function for this and it will utilize the other functions that we created.
+
+```python
+def determineKeySize(data,minkeysize,maxkeysize):
+    results = []
+    for size in range(minkeysize,maxkeysize):
+        pieces = getTwoPieces(size,data)
+        distance = computeHammingDistance(pieces[0],pieces[1],size)
+        results.append([size,distance])
+    retval = None
+    for result in results:
+        if not retval:
+            retval = result
+        elif result[1] < retval[1]:
+            retval = result
+        else:
+            pass
+    return retval
+```
+
+When we run this, we get a keysize of 9 with a normalized distance of 3.11... So now, we have our potential keysize. The website says to break the data into blocks of the keysize that we determined in the last step and perform some other operations on them. Also, the website says to use histograms and our scoring method did not use this technique. One thing we could do is look for invalid ASCII characters when bruteforcing each transposed block (I will explain the transposition process in a bit). This will, at least, give us a good idea of where the key is in the range of 0-255. Before we begin that process, let's talk about the transposition process. First, we grab keysize number of blocks that are keysize long. This gives us a nice mathematical square. Then, we loop over `for x in range(keysize)` and get the current x'th byte from each block and put those into an array. This will give us an array that is `[keysize][keysize]` large that contains bytes that are encrypted with the same key. Let's look at a visual representation of this with a keysize of 4.
+
+```
+data = ABCDEFGHIJKLMNOPQRSTUVWXYZ
+blocks = [[ABCD],[EFGH],[IJKL],[MNOP]]
+array = [[AEIM],[BFJN],[CGKO],[DHLP]]
+```
+After you have this array, you can treat each block as a single-byte XOR problem. However, you do not have the benefit of using quadgrams to determine the fitness of each block because, even if you do find the key for a block, the other 3 letters of the quadgram will be in the remaining 3 blocks. So, we will need one more tool to determine the fitness of each block and then we can determine the fitness of the overall string. The other tool we will be using is the index of coincidence. This tool will give you a good measure of how close the decrypted text is to English.
+
 ## Solution
