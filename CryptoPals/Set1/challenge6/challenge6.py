@@ -43,7 +43,7 @@ def determineKeySize(data,minkeysize,maxkeysize):
             retval = result
         else:
             pass
-    return retval
+    return retval[0]
 
 def calculateIC(textbytes):
     result = None
@@ -77,18 +77,36 @@ def calculateIC(textbytes):
     except:
         return None
 
-def transposeBlocks(textbytes,keysize):
+def getBlocks(textbytes,keysize):
+    keysize = keysize+1
     if type(textbytes) == str:
         textbytes = bytearray(textbytes,'utf8')
-    array1 = [[0]*keysize]*keysize
-    counter = 0
+    array1 = []
+    counter = 1
+    temparray = []
     for char in textbytes:
-        array1[]
+        if counter%keysize == 0 and counter != 0:
+            array1.append(temparray)
+            temparray = []
+        else:
+            temparray.append(char)
         counter+=1
+    return array1
 
-keysize = 10
+def unzipBlocks(blocks,keysize):
+    unzipped = [[0]*keysize]*len(blocks)
+    for x in range(len(blocks)):
+        for y in range(keysize):
+            unzipped[y][x]=blocks[x][y]
+    return unzipped
+
 file = b64DecodeFile('./6.txt')
-determinedSize = determineKeySize(file,2,40)
-print(determinedSize)
+keysize = determineKeySize(file,2,40)
+print(keysize)
 print(calculateIC(""))
-transposeBlocks(file,determinedSize[0])
+blocks = getBlocks(file,keysize)
+for i in blocks:
+    print(i)
+unzipped = unzipBlocks(blocks,keysize)
+for i in unzipped:
+    print(i)
