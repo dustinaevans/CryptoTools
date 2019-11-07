@@ -53,15 +53,16 @@ def calculateIC(textbytes):
             text = textbytes.decode().lower()
         elif type(textbytes) == str:
             text = textbytes.lower()
+            print(text)
         else:
-            print("paramater is not of type str or bytes")
-            exit(1)
+            #print("paramater is not of type str or bytes")
+            pass
         textlength = 0
         result = []
         letters = 'abcdefghijklmnopqrstuvwxyz'
-        for letter in text:
-            if letter in letters:
-                textlength += 1.00
+        # for letter in text:
+        #     if letter in letters:
+        #         textlength += 1.00
         for letter in letters:
             temp = {'letter':letter,'count':0}
             for char in text:
@@ -74,31 +75,43 @@ def calculateIC(textbytes):
             ic += count*(count-1.00)
         return ic/(textlength*(textlength-1.00))
     except:
-        return None
+        return 2
 
 def getBlocks(textbytes,keysize):
-    from math import floor
-    import numpy as np
+    # from math import floor
+    # import numpy as np
     if type(textbytes) == str:
         textbytes = bytearray(textbytes,'utf8')
-    textbytes1 = np.frombuffer(textbytes,dtype='S1')
-    array1 = np.array_split(textbytes1,len(textbytes)//keysize)
-    # keysize = keysize
-    # array1 = []
-    # counter = 0
-    # temparray = []
-    # for char in textbytes:
-    #     if (counter%(keysize) == 0) and (counter != 0):
-    #         array1.append(temparray)
-    #         temparray = []
-    #     temparray.append(char)
-    #     counter+=1
+    # textbytes1 = np.frombuffer(textbytes,dtype='S1')
+    # array1 = np.array_split(textbytes1,len(textbytes)//keysize)
+    keysize = keysize
+    array1 = []
+    counter = 0
+    temparray = []
+    for char in textbytes:
+        if (counter%(keysize) == 0) and (counter != 0):
+            array1.append(temparray)
+            temparray = []
+        temparray.append(char)
+        counter+=1
     return array1
 
 def transposeBlocks(blocks):
     import numpy as np
     transposed = np.transpose(blocks)
     return transposed.tolist()
+
+def xorDecrypt(sourcehex,key):
+    if type(sourcehex) == str:
+        sourcehex = bytearray.fromhex(sourcehex)
+    dest = bytearray.fromhex('') # just makes an empty bytearray
+    for b in sourcehex:
+        dest.append(b^key)
+    try:
+        dest = dest.decode()
+        return
+    except:
+        return dest
 
 data = b64DecodeFile('./6.txt')
 keysize = determineKeySize(data,2,40)
@@ -110,8 +123,17 @@ print("Length of each block: %s"%len(blocks[0]))
 print("TextLength: %s"%len(data))
 print("Text length / keysize: %s"%(len(data)/keysize))
 transposed = transposeBlocks(blocks)
-for i in range(10):
-    print(blocks[i])
-print()
-for i in range(10):
-    print(transposed[i])
+xorResults = []
+selectedResults = []
+for block in transposed:
+    for char in range(255):
+        xor = xorDecrypt(block,char)
+        ic = calculateIC(xor)
+        xorResults.append({'pt':xor,'score':ic})
+    tempResult = {'pt':'','score':2}
+    for result in xorResults:
+        #print(result)
+        if result['score'] < tempResult['score']:
+            tempResult = result
+    selectedResults.append(tempResult)
+    break
