@@ -63,7 +63,7 @@ class SekureLib:
 
     def generateUUID(self):
         id = uuid.uuid4()
-        return id
+        return str(id)
 
     def generateOTPKey(self,password):
         shake = SHAKE256.new()
