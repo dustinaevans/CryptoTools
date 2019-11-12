@@ -1,6 +1,7 @@
 from sekurelib import SekureLib
 from sekure_keymanager import SKKM
 import blessings
+import socket
 
 class SekureKlient:
     def __init__(self,keyfile):
@@ -9,6 +10,7 @@ class SekureKlient:
         self.sklib = SekureLib()
         self.skkm = SKKM(self.term)
         self.connected = False
+        self.socket = None
         self.runvar = True
         self.keyfile = keyfile
         self.keydatabase = None
@@ -55,6 +57,7 @@ class SekureKlient:
             self.keyManagementMenu()
         elif choice == "4":
             self.runvar = False
+            self.socket.close()
         else:
             self.mainMenu()
 
@@ -71,12 +74,37 @@ class SekureKlient:
 
     def connectToServer(self,server,port):
         # TCP socket to server:port save connection in object attribute self.server
+        self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         print("Connecting to %s"%server)
+        try:
+            self.socket.connect((server,int(port)))
+        except Exception as e:
+            print("Could not connect. %s"%e)
+
+    # {
+    #   'action':'new'|'del'|'getone'|'getall',
+    #   'query':{'msgid':<messageID>}|{'usrid':<userID>},
+    #   'message':{'msgid':<messageID>,'message':<message>}
+    # }
+
+    def getOneMessage(self):
+        data = {
+        'action':'getone',
+        'query':{'messageid':'12345'},
+        'message':''
+        }
+        self.socket.sendall(data.encode())
+
+    def getAllMessages(self):
         pass
 
-    def getMessages(self):
-        print("Get messages")
-        # collect encrypted messages
+    def deleteMessage(self):
+        pass
+
+    def newMessage(self):
+        pass
+
+    def sendMessage(self,message):
         pass
 
     def run(self):
@@ -88,8 +116,14 @@ class SekureKlient:
         print("Quitting...")
 
 
+
+
+
 sk = SekureKlient('./keybase.db')
-sklib = SekureLib()
+
+
+
+# sklib = SekureLib()
 # print(sk.keydatabase)
 # sk.saveKeyDatabase()
 #sk.saveKeyDatabase('./keybase.db')

@@ -34,6 +34,15 @@ Decrypted message format:
 }
 ```
 
+## Comms API
+```
+{
+  'action':'new'|'del'|'getone'|'getall',
+  'query':{'msgid':<messageID>}|{'usrid':<userID>},
+  'message':{'msgid':<messageID>,'message':<message>}
+}
+```
+
 ## Notes
 Zero knowledge system (computer has zero knowledge of the private key)
 PK Cryptography
