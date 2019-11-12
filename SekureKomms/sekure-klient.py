@@ -1,13 +1,21 @@
 from sekurelib import SekureLib
+from sekure_keymanager import SKKM
+import blessings
 
 class SekureKlient:
     def __init__(self,keyfile):
+        self.term = blessings.Terminal()
+        print(self.term.enter_fullscreen)
         self.sklib = SekureLib()
+        self.skkm = SKKM(self.term)
+        self.connected = False
+        self.runvar = True
         self.keyfile = keyfile
         self.keydatabase = None
+        self.term.clear()
         try:
             print("Trying to load database from file...")
-            self.loadKeyDatabase(self.keyfile)
+            self.skkm.loadKeyDatabase(self.keyfile)
             print("DB loaded successfully.")
         except Exception as e:
             print("Failed to load database, generating new DB -",e)
@@ -23,54 +31,67 @@ class SekureKlient:
                 'HMACSecret':self.HMACSecret,
                 'OTPKeys': []
             }
+        self.run()
+        print(self.term.exit_fullscreen)
 
-    def getKey(self,id):
+    def keyManagementMenu(self):
+        self.skkm.menu()
+
+    def mainMenu(self):
+        self.term.clear()
+        self.term.move(0, 0)
+        print("1. Connect to a server")
+        print("2. View messages offline")
+        print("3. Key Management")
+        print("4. Quit")
+        choice = input(": ")
+        if choice == "1":
+            server = input("Enter server address: ")
+            port = input("Enter server port: ")
+            self.connectToServer(server,port)
+        elif choice == "2":
+            self.getMessages()
+        elif choice == "3":
+            self.keyManagementMenu()
+        elif choice == "4":
+            self.runvar = False
+        else:
+            self.mainMenu()
+
+    def connectedMenu(self):
+        self.term.clear()
+        self.term.move(0, 0)
+        print("Connected to server...")
+        print("1. View messages")
+        print("2. Compose message")
+        print("3. Delete message")
+        print("4. Key management")
+        print("5. Disconnect")
+        return input(": ")
+
+    def connectToServer(self,server,port):
+        # TCP socket to server:port save connection in object attribute self.server
+        print("Connecting to %s"%server)
         pass
 
-    def getAllKeys(self):
+    def getMessages(self):
+        print("Get messages")
+        # collect encrypted messages
         pass
 
-    def loadKeyDatabase(self,database):
-        import pickle
-        import json
-        try:
-            dbfile = open(database,'r+')
-            db = dbfile.read()
-            passw = self.getUserPassword()
-            db = self.sklib.AESDecrypt(db,passw)
-            self.keydatabase = json.loads(db)
-            del passw
-            dbfile.close()
-        except Exception as e:
-            print("Load keydatabase failed in function loadKeyDatabase() with -",e)
-
-    def saveKeyDatabase(self):
-        import pickle
-        import json
-        exportdb = {}
-        exportdb['privatekey'] = str(self.privatekey)
-        exportdb['publickey'] = str(self.publickey)
-        exportdb['clientid'] = self.clientid
-        exportdb['HMACSecret'] = self.HMACSecret
-        dbfile = open(self.keyfile,'w+')
-        passw = self.getUserPassword()
-        db = json.dumps(exportdb)
-        db = self.sklib.AESEncrypt(db,passw)
-        print(db)
-        del passw
-        dbfile.write(db)
-        dbfile.close()
-
-    def getUserPassword(self):
-        import getpass
-        passw = getpass.getpass("Encryption password: ")
-        return passw
+    def run(self):
+        while self.runvar:
+            if not self.connected:
+                self.mainMenu()
+            else:
+                self.connectedMenu()
+        print("Quitting...")
 
 
 sk = SekureKlient('./keybase.db')
 sklib = SekureLib()
-print(sk.keydatabase)
-sk.saveKeyDatabase()
+# print(sk.keydatabase)
+# sk.saveKeyDatabase()
 #sk.saveKeyDatabase('./keybase.db')
 # key = sklib.generateOTPKey('asdf')
 # ct = sklib.OTPEncrypt("help me obiwan kinobi, you're my only hope.",key)

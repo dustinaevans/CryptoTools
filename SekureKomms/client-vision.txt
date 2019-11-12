@@ -1,0 +1,20 @@
+Messageboxes (Now):
+End to end encrypted
+OTP keys exchanged manually via RSA
+Mailbox only exists on one server for now
+
+
+1. Ask for password and AES Decrypt keyfile and save in object
+2. Connect to a Sekure Server
+3. Send client ID
+4. Retrieve messages
+5. Decrypt messages when they need to be read
+6. Open key management
+7. Create key and send to clientID
+8. Create new message
+9. Encrypt and send message
+
+
+Chat Rooms (Later):
+End to end encrypted
+OTP keys exchanged manually via RSA
