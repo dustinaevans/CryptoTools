@@ -1,3 +1,5 @@
+# This is under development. Do not use this and expect secure comms.
+
 # CryptoPals
 Solutions to the challenges located at https://cryptopals.com/
 
@@ -43,6 +45,16 @@ Decrypted message format:
   'message':{'msgid':<messageID>,'message':<message>}
 }
 ```
+
+## Secure Communication
+1. Encrypted server communication
+2. Exchange public keys
+3. Server generates aes key
+4. Sends key to client rsa encrypted
+5. Client generates one time pad
+6. Sends to server aes encrypted
+7. Client and server use otp to communicate
+8. Keys are purged on disconnect
 
 ## Notes
 Zero knowledge system (computer has zero knowledge of the private keys and messages)

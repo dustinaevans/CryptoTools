@@ -30,7 +30,14 @@ class ServerThread(threading.Thread):
         fd = open('%s.msg'%data['userid'],'r')
         messages = []
         for line in fd:
-            messages.append(line) # Create json from line
+            line = line.split('.')
+            message = {
+            'id':line[0],
+            'message':line[1],
+            'length':line[2],
+            'hash':line[3]
+            }
+            messages.append(message)
         self.csocket.send(bytes(json.dumps(messages),'utf8'))
 
     def deleteMessage(self,data):

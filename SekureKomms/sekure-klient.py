@@ -1,6 +1,7 @@
 from sekurelib import SekureLib
 from sekure_keymanager import SKKM
 import blessings, socket, json
+from base64 import b64decode,b64encode
 
 class SekureKlient:
     def __init__(self,keyfile):
@@ -57,6 +58,10 @@ class SekureKlient:
         print(recv)
 
     def getAllMessages(self):
+        # {"message": "eyd1c2VyaWQnOiAnMDUzZDJiMGYtMmE2My00MTZlLThjZWQtNDU1Mjc0Y2ZmM2JhJywgJ3JjcHQnOiAnMDUzZDJiMGYtMmE2My00MTZlLThjZWQtNDU1Mjc0Y2ZmM2JhJywgJ21lc3NhZ2UnOiAnYWUzYjgzOGI5NzA0ZGZlMDNjN2RhYThkNGZlMzJkOTQ6ZGIzNTM1OTY0MDk4MmY4ZDZjZDJjMDFhNGM0YTI5Y2QnfQ==",
+        # "id": "568358dc-fce8-493f-b9a7-b65ca902172b",
+        # "hash": "407a469d55da229617ed36f14c8c706eeda9e658771f9823b3b8e1f2fcf71367847b2917df71eab2c947e0da1ac10fb39c9a835afbb70bfcec23acaa08dd43ec\\n",
+        # "length": "178"}
         data = {
         'userid':str(self.skkm.clientid),
         'action':'getall',
@@ -64,7 +69,15 @@ class SekureKlient:
         'message':''
         }
         self.socket.sendall(json.dumps(data).encode())
-        print(self.socket.recv(1024))
+        messages = self.socket.recv(1024).decode()
+        messages = json.loads(messages)
+        for i in messages:
+            message = b64decode(i['message']).decode().replace("\'","\"")
+            message = json.loads(message)
+            print("Message ID: %s"%i['id'])
+            print("Sender: %s"%message['userid'])
+            print("Length: %s"%len(message['message']))
+            print()
 
     def deleteMessage(self):
         pass
@@ -162,7 +175,6 @@ class SekureKlient:
 
 
 sk = SekureKlient('./keybase.db')
-
 
 
 # sklib = SekureLib()
