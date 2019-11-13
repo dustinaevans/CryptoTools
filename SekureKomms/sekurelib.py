@@ -3,12 +3,18 @@ from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
+from Crypto.Hash import SHA512
 from binascii import hexlify
 import uuid
 
 class SekureLib:
     def __init__(self):
         self.rounds = 10000
+
+    def generateSHA(self,data):
+        hash_obj = SHA512.new()
+        hash_obj.update(bytes(data,'utf8'))
+        return hash_obj.hexdigest()
 
     def generateRSAKeyPair(self):
         private = RSA.generate(2048)
@@ -62,7 +68,7 @@ class SekureLib:
         return out.decode()
 
     def generateUUID(self):
-        id = uuid.uuid4()
+        id = uuid.uuid1()
         return str(id)
 
     def generateOTPKey(self,password):

@@ -1,7 +1,6 @@
 from sekurelib import SekureLib
 from sekure_keymanager import SKKM
-import blessings
-import socket
+import blessings, socket, json
 
 class SekureKlient:
     def __init__(self,keyfile):
@@ -39,53 +38,14 @@ class SekureKlient:
     def keyManagementMenu(self):
         self.skkm.menu()
 
-    def mainMenu(self):
-        self.term.clear()
-        self.term.move(0, 0)
-        print("1. Connect to a server")
-        print("2. View messages offline")
-        print("3. Key Management")
-        print("4. Quit")
-        choice = input(": ")
-        if choice == "1":
-            server = input("Enter server address: ")
-            port = input("Enter server port: ")
-            self.connectToServer(server,port)
-        elif choice == "2":
-            self.getMessages()
-        elif choice == "3":
-            self.keyManagementMenu()
-        elif choice == "4":
-            self.runvar = False
-            self.socket.close()
-        else:
-            self.mainMenu()
-
-    def connectedMenu(self):
-        self.term.clear()
-        self.term.move(0, 0)
-        print("Connected to server...")
-        print("1. View messages")
-        print("2. Compose message")
-        print("3. Delete message")
-        print("4. Key management")
-        print("5. Disconnect")
-        return input(": ")
-
-    def connectToServer(self,server,port):
-        # TCP socket to server:port save connection in object attribute self.server
-        self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        print("Connecting to %s"%server)
-        try:
-            self.socket.connect((server,int(port)))
-        except Exception as e:
-            print("Could not connect. %s"%e)
-
     # {
     #   'action':'new'|'del'|'getone'|'getall',
     #   'query':{'msgid':<messageID>}|{'usrid':<userID>},
     #   'message':{'msgid':<messageID>,'message':<message>}
     # }
+
+    def getOfflineMessages(self):
+        pass
 
     def getOneMessage(self):
         data = {
@@ -93,19 +53,101 @@ class SekureKlient:
         'query':{'messageid':'12345'},
         'message':''
         }
-        self.socket.sendall(data.encode())
+        recv = self.socket.sendall(data.encode())
+        print(recv)
 
     def getAllMessages(self):
-        pass
+        data = {
+        'userid':str(self.skkm.clientid),
+        'action':'getall',
+        'query':{},
+        'message':''
+        }
+        self.socket.sendall(json.dumps(data).encode())
+        print(self.socket.recv(1024))
 
     def deleteMessage(self):
         pass
 
+    def userInput(self,inputmsg):
+        print(inputmsg)
+        usrinput = input(": ")
+        return usrinput
+
     def newMessage(self):
-        pass
+        self.term.clear()
+        self.term.move(0,0)
+        rcpt = self.userInput("Who would you like to send to?")
+        message = self.userInput("Enter a message up to 4096 bytes")
+        passw = self.userInput('Enter an encryption password')
+        data = {
+        'userid':str(self.skkm.clientid),
+        'rcpt': rcpt,
+        'action':'new',
+        'query':{},
+        'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
+        }
+        self.socket.send(bytes(json.dumps(data),'utf8'))
 
     def sendMessage(self,message):
         pass
+
+    def disconnect(self):
+        try:
+            self.socket.close()
+        except:
+            pass
+        print("Disconnected...")
+        self.connected=False
+
+    def mainMenu(self):
+        self.term.clear()
+        self.term.move(0, 0)
+        choice = self.userInput("Welcome back %s\n1. Connect to a server\n2. View messages offline\n3. Key Management\n4. Quit\n"%str(self.skkm.clientid))
+        if choice == "1":
+            server = input("Enter server address: ")
+            port = input("Enter server port: ")
+            self.connectToServer(server,port)
+        elif choice == "2":
+            self.getOfflineMessages()
+        elif choice == "3":
+            self.keyManagementMenu()
+        elif choice == "4":
+            self.runvar = False
+        else:
+            self.mainMenu()
+
+    def connectedMenu(self):
+        self.term.clear()
+        self.term.move(0, 0)
+        print("1. View messages")
+        print("2. Compose message")
+        print("3. Delete message")
+        print("4. Key management")
+        print("5. Disconnect")
+        choice = input(": ")
+        if choice == '1':
+            self.getAllMessages()
+        elif choice == '2':
+            self.newMessage()
+        elif choice == '3':
+            self.deleteMessage()
+        elif choice == '4':
+            self.keyManagementMenu()
+        elif choice == '5':
+            self.disconnect()
+        else:
+            self.connectedMenu()
+
+    def connectToServer(self,server,port):
+        # TCP socket to server:port save connection in object attribute self.server
+        self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        print("Connecting to %s"%server)
+        try:
+            self.socket.connect((server,int(port)))
+            self.connected = True
+        except Exception as e:
+            print("Could not connect. %s"%e)
 
     def run(self):
         while self.runvar:

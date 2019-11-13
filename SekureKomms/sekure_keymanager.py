@@ -17,16 +17,23 @@ class SKKM:
     def loadKeyDatabase(self,database):
         import pickle
         import json
-        try:
-            dbfile = open(database,'r+')
-            db = dbfile.read()
-            passw = self.getUserPassword()
-            db = self.sklib.AESDecrypt(db,passw)
-            self.keydatabase = json.loads(db)
-            del passw
-            dbfile.close()
-        except Exception as e:
-            print("Load keydatabase failed in function loadKeyDatabase() with -",e)
+        for attempt in range(3):
+            print("%s tries left."%(3-attempt))
+            try:
+                dbfile = open(database,'r+')
+                db = dbfile.read()
+                passw = self.getUserPassword()
+                db = self.sklib.AESDecrypt(db,passw)
+                self.keydatabase = json.loads(db)
+                self.clientid = self.keydatabase['clientid']
+                del passw
+                dbfile.close()
+                break
+            except Exception as e:
+                if attempt == 2:
+                    exit(0)
+                else:
+                    print('Incorrect encryption key.\n')
 
     def saveKeyDatabase(self):
         import pickle

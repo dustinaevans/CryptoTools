@@ -20,7 +20,7 @@ To create a secure communications program/algorithm
 ## Encrypted Message Format
 ```
 Encrypted message format:
-messageID(plaintext).<encrypted message>.length.<SHA-512 HMAC>
+messageID(plaintext).<encrypted message>.length.<SHA-512>
 
 ```
 
@@ -37,6 +37,7 @@ Decrypted message format:
 ## Comms API
 ```
 {
+  'userid':<userid>,
   'action':'new'|'del'|'getone'|'getall',
   'query':{'msgid':<messageID>}|{'usrid':<userID>},
   'message':{'msgid':<messageID>,'message':<message>}
@@ -44,7 +45,7 @@ Decrypted message format:
 ```
 
 ## Notes
-Zero knowledge system (computer has zero knowledge of the private key)
+Zero knowledge system (computer has zero knowledge of the private keys and messages)
 PK Cryptography
 Two factor keys on both sides
 Symmetric keys exchanged via PK
