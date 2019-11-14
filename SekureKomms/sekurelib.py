@@ -50,11 +50,12 @@ class SekureLib:
         pt = unpad(pt_bytes,AES.block_size).decode()
         return pt
 
-    def generateAESKey(self,privatekey):
-        keybytes = get_random_bytes(16)
-        cipher_rsa = PKCS1_OAEP.new(privatekey)
-        aeskey = cipher_rsa.encrypt(keybytes)
-        return aeskey.hex()
+    def generateAESKey(self,publickey):
+        keybytes = get_random_bytes(16).hex()
+        aeskey = self.generateSHA(keybytes)
+        for i in range(self.rounds):
+            aeskey = self.generateSHA(aeskey)
+        return aeskey
 
     def generateHMACSecret(self):
         keybytes = get_random_bytes(16)
@@ -68,7 +69,7 @@ class SekureLib:
         return out.decode()
 
     def generateUUID(self):
-        id = uuid.uuid1()
+        id = uuid.uuid4()
         return str(id)
 
     def generateOTPKey(self,password):
@@ -79,7 +80,7 @@ class SekureLib:
             shake = SHAKE256.new()
             shake.update(out)
             out = hexlify(shake.read(4096))
-        return out
+        return out.decode()
 
     def OTPEncrypt(self,ptmessage,key):
         ctmessage=bytearray('','utf8')

@@ -1,6 +1,6 @@
 from sekurelib import SekureLib
 from sekure_keymanager import SKKM
-import blessings, socket, json
+import blessings, socket, json, time
 from base64 import b64decode,b64encode
 
 class SekureKlient:
@@ -14,25 +14,17 @@ class SekureKlient:
         self.runvar = True
         self.keyfile = keyfile
         self.keydatabase = None
-        self.term.clear()
+        print(self.term.clear)
         try:
             print("Trying to load database from file...")
             self.skkm.loadKeyDatabase(self.keyfile)
             print("DB loaded successfully.")
+            time.sleep(1)
+            print(self.term.clear)
         except Exception as e:
             print("Failed to load database, generating new DB -",e)
-            self.keypair = self.sklib.generateRSAKeyPair()
-            self.privatekey = self.keypair[0]
-            self.publickey = self.keypair[1]
-            self.clientid = self.sklib.generateUUID()
-            self.HMACSecret = self.sklib.generateHMACSecret()
-            self.keydatabase = {
-                'ClientID':self.clientid,
-                'RSAPrivate':self.privatekey,
-                'RSAPublic':self.publickey,
-                'HMACSecret':self.HMACSecret,
-                'OTPKeys': []
-            }
+            self.skkm.generateDatabase()
+            self.skkm.saveKeyDatabase()
         self.run()
         print(self.term.exit_fullscreen)
 
@@ -68,8 +60,8 @@ class SekureKlient:
         'query':{},
         'message':''
         }
-        self.socket.sendall(json.dumps(data).encode())
-        messages = self.socket.recv(1024).decode()
+        self.sendToServer(json.dumps(data))
+        messages = self.recvFromServer()
         messages = json.loads(messages)
         for i in messages:
             message = b64decode(i['message']).decode().replace("\'","\"")
@@ -78,19 +70,20 @@ class SekureKlient:
             print("Sender: %s"%message['userid'])
             print("Length: %s"%len(message['message']))
             print()
+        input("Press any key to continue...")
 
     def deleteMessage(self):
         pass
 
-    def userInput(self,inputmsg):
+    def userInput(self,inputmsg,newpage=False):
+        if newpage:
+            print(self.term.clear)
         print(inputmsg)
         usrinput = input(": ")
         return usrinput
 
     def newMessage(self):
-        self.term.clear()
-        self.term.move(0,0)
-        rcpt = self.userInput("Who would you like to send to?")
+        rcpt = self.userInput("Who would you like to send to?",True)
         message = self.userInput("Enter a message up to 4096 bytes")
         passw = self.userInput('Enter an encryption password')
         data = {
@@ -100,10 +93,7 @@ class SekureKlient:
         'query':{},
         'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
         }
-        self.socket.send(bytes(json.dumps(data),'utf8'))
-
-    def sendMessage(self,message):
-        pass
+        self.sendToServer(json.dumps(data))
 
     def disconnect(self):
         try:
@@ -114,12 +104,10 @@ class SekureKlient:
         self.connected=False
 
     def mainMenu(self):
-        self.term.clear()
-        self.term.move(0, 0)
-        choice = self.userInput("Welcome back %s\n1. Connect to a server\n2. View messages offline\n3. Key Management\n4. Quit\n"%str(self.skkm.clientid))
+        choice = self.userInput("Welcome back %s\n1. Connect to a server\n2. View messages offline\n3. Key Management\n4. Quit\n"%str(self.skkm.clientid),True)
         if choice == "1":
-            server = input("Enter server address: ")
-            port = input("Enter server port: ")
+            server = self.userInput("Enter server address")
+            port = self.userInput("Enter server port")
             self.connectToServer(server,port)
         elif choice == "2":
             self.getOfflineMessages()
@@ -131,14 +119,7 @@ class SekureKlient:
             self.mainMenu()
 
     def connectedMenu(self):
-        self.term.clear()
-        self.term.move(0, 0)
-        print("1. View messages")
-        print("2. Compose message")
-        print("3. Delete message")
-        print("4. Key management")
-        print("5. Disconnect")
-        choice = input(": ")
+        choice = self.userInput("ClientID: %s\n1. View messages\n2. Compose message\n3. Delete message\n4. Key management\n5. Disconnect"%self.skkm.clientid,True)
         if choice == '1':
             self.getAllMessages()
         elif choice == '2':
@@ -152,15 +133,40 @@ class SekureKlient:
         else:
             self.connectedMenu()
 
+    def negotiateSecurity(self):
+        self.sendToServer('negotiateSecurity')
+        print(self.skkm.exportRSAKey())
+        self.sendToServer(self.skkm.exportRSAKey())
+        self.remotepublic = self.skkm.importRemoteRSAPublic(self.recvFromServer())
+        self.sessionaeskey = self.recvFromServer()
+        self.sessionOTP = self.sklib.generateOTPKey(self.sklib.generateAESKey(self.skkm.publickey))
+        self.sendToServer(self.sessionOTP)
+        if self.skkm.remotePublic and self.sessionaeskey and self.sessionOTP:
+            print("Communication security negotiated...")
+        else:
+            raise Exception('NegotiatSecurityException')
+
     def connectToServer(self,server,port):
-        # TCP socket to server:port save connection in object attribute self.server
         self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         print("Connecting to %s"%server)
         try:
             self.socket.connect((server,int(port)))
+            self.negotiateSecurity()
             self.connected = True
         except Exception as e:
-            print("Could not connect. %s"%e)
+            print("Could not connect. %s"%(e))
+            time.sleep(2)
+
+    def sendToServer(self,message):
+        length = str(len(message)).zfill(4)
+        self.socket.send(length.encode())
+        self.socket.send(message.encode())
+
+    def recvFromServer(self):
+        length = self.socket.recv(4)
+        length = int(length.decode())
+        message = self.socket.recv(length).decode()
+        return message
 
     def run(self):
         while self.runvar:

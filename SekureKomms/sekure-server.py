@@ -1,13 +1,22 @@
-import socket, threading, json
+import socket, threading, json, blessings
 from sekurelib import SekureLib
+from sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
 
 class ServerThread(threading.Thread):
 
     def __init__(self,clientAddress,clientsocket):
+        self.term = blessings.Terminal()
         self.sklib = SekureLib()
+        self.clientAddress = clientAddress
         threading.Thread.__init__(self)
-        self.csocket = clientsocket
+        self.socket = clientsocket
+        self.skkm = SKKM(self.term)
+        self.keypair = self.sklib.generateRSAKeyPair()
+        self.skkm.privatekey = self.keypair[0]
+        self.skkm.publickey = self.keypair[1]
+        self.privatekey = self.keypair[0]
+        self.publickey = self.keypair[1]
         print ("New connection added: ", clientAddress)
 
     def newMessage(self,data):
@@ -38,28 +47,52 @@ class ServerThread(threading.Thread):
             'hash':line[3]
             }
             messages.append(message)
-        self.csocket.send(bytes(json.dumps(messages),'utf8'))
+        self.socket.send(bytes(json.dumps(messages),'utf8'))
 
     def deleteMessage(self,data):
         pass
 
+    def recvFromClient(self):
+        length = self.socket.recv(4)
+        length = int(length.decode())
+        message = self.socket.recv(length).decode()
+        return message
+
+    def sendToClient(self,message):
+        length = str(len(message)).zfill(4)
+        self.socket.send(length.encode())
+        self.socket.send(message.encode())
+
+    def negotiateSecurity(self):
+        self.skkm.importRemoteRSAPublic(self.recvFromClient())
+        self.sendToClient(self.skkm.exportRSAKey())
+        self.sessionaeskey = self.sklib.generateAESKey(self.publickey)
+        print("Session Key: %s"%self.sessionaeskey)
+        self.sendToClient(self.sklib.RSAEncrypt(self.sessionaeskey,self.skkm.remotePublic))
+        self.sessionOTP = self.recvFromClient()
+        if self.skkm.remotePublic and self.sessionaeskey and self.sessionOTP:
+            print("Security negotiated with client")
+        else:
+            raise Exception('NegotiatSecurityException')
+
     def run(self):
         print("Connection from : ", clientAddress)
         while True:
-            data = self.csocket.recv(8192)
-            print(data.decode())
-            data = json.loads(data.decode())
-            if data['action'] == 'new':
-                self.newMessage(data)
-            elif data['action'] == 'getone':
-                self.getOneMessage(data)
-            elif data['action'] == 'getall':
-                self.getAllMessages(data)
-            elif data['action'] == 'del':
-                self.deleteMessage(data)
+            data = self.recvFromClient()
+            if data == 'negotiateSecurity':
+                self.negotiateSecurity()
             else:
-                print('No action selected')
-            #self.csocket.send(bytes(msg,'UTF-8'))
+                data = json.loads(data)
+                if data['action'] == 'new':
+                    self.newMessage(data)
+                elif data['action'] == 'getone':
+                    self.getOneMessage(data)
+                elif data['action'] == 'getall':
+                    self.getAllMessages(data)
+                elif data['action'] == 'del':
+                    self.deleteMessage(data)
+                else:
+                    print('No action selected')
         print ("Client at ", clientAddress , " disconnected...")
 
 

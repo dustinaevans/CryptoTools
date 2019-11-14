@@ -1,12 +1,21 @@
 from sekurelib import SekureLib
-import blessings
+from Crypto.PublicKey import RSA
+import blessings, time, os
+from base64 import b64encode,b64decode
 
 class SKKM:
     def __init__(self,terminal):
         self.sklib = SekureLib()
         self.term = terminal
+
     def menu(self):
-        print("Key management menu")
+        print(self.term.clear)
+        print("RSA Private: \n%s\n"%self.privatekey)
+        print("RSA Public: \n%s\n"%self.publickey)
+        print("RSA Private String: \n%s\n"%self.exportRSAKey('private'))
+        print("RSA Public String: \n%s\n"%self.exportRSAKey())
+        input("Press any key to continue...")
+
 
     def getKey(self,id):
         pass
@@ -14,9 +23,26 @@ class SKKM:
     def getAllKeys(self):
         pass
 
+    def generateDatabase(self):
+        self.keypair = self.sklib.generateRSAKeyPair()
+        self.privatekey = self.keypair[0]
+        self.publickey = self.keypair[1]
+        self.clientid = self.sklib.generateUUID()
+        self.HMACSecret = self.sklib.generateHMACSecret()
+        self.keydatabase = {
+            'clientid':self.clientid,
+            'privatekey':self.privatekey,
+            'publickey':self.publickey,
+            'HMACSecret':self.HMACSecret,
+            'OTPKeys': []
+        }
+
     def loadKeyDatabase(self,database):
         import pickle
         import json
+        self.keyfile = database
+        if not os.path.exists(database):
+            raise Exception('Monkey')
         for attempt in range(3):
             print("%s tries left."%(3-attempt))
             try:
@@ -25,12 +51,16 @@ class SKKM:
                 passw = self.getUserPassword()
                 db = self.sklib.AESDecrypt(db,passw)
                 self.keydatabase = json.loads(db)
+                print(self.keydatabase)
                 self.clientid = self.keydatabase['clientid']
+                self.privatekey = self.importRSAKey(self.keydatabase['privatekey'])
+                self.publickey = self.importRSAKey(self.keydatabase['publickey'])
                 del passw
                 dbfile.close()
                 break
             except Exception as e:
                 if attempt == 2:
+                    print(e)
                     exit(0)
                 else:
                     print('Incorrect encryption key.\n')
@@ -39,18 +69,38 @@ class SKKM:
         import pickle
         import json
         exportdb = {}
-        exportdb['privatekey'] = str(self.privatekey)
-        exportdb['publickey'] = str(self.publickey)
-        exportdb['clientid'] = self.clientid
-        exportdb['HMACSecret'] = self.HMACSecret
+        exportdb['privatekey'] = self.exportRSAKey('private')
+        exportdb['publickey'] = self.exportRSAKey()
+        exportdb['clientid'] = self.keydatabase['clientid']
+        exportdb['HMACSecret'] = self.keydatabase['HMACSecret']
         dbfile = open(self.keyfile,'w+')
         passw = self.getUserPassword()
         db = json.dumps(exportdb)
         db = self.sklib.AESEncrypt(db,passw)
-        print(db)
         del passw
         dbfile.write(db)
         dbfile.close()
+
+    def importRemoteRSAPublic(self,key):
+        print(key)
+        key = b64decode(key)
+        print(key)
+        # time.sleep(2)
+        self.remotePublic = RSA.import_key(key)
+
+    def importRSAKey(self,key):
+        key = b64decode(key).decode()
+        print("Importing: \n%s"%key)
+        return RSA.import_key(key)
+
+    def exportRSAKey(self,disposition='public'):
+        privatekey = self.privatekey.exportKey()
+        publickey = self.publickey.exportKey()
+        if disposition == 'private':
+            return b64encode(privatekey).decode()
+        # print(publickey)
+        # time.sleep(2)
+        return b64encode(publickey).decode()
 
     def getUserPassword(self):
         import getpass
