@@ -1,5 +1,5 @@
-from sekurelib import SekureLib
-from sekure_keymanager import SKKM
+from libs.sekurelib import SekureLib
+from libs.sekure_keymanager import SKKM
 import blessings, socket, json, time
 from base64 import b64decode,b64encode
 
@@ -21,10 +21,13 @@ class SekureKlient:
         self.runvar = True
         self.keyfile = keyfile
         self.keydatabase = None
+        self.initMainMenu()
+        self.initConnectedMenu()
         print(self.term.clear)
         try:
             print("Trying to load database from file...")
             self.skkm.loadKeyDatabase(self.keyfile)
+            self.spinnyThing()
             print("DB loaded successfully.")
             time.sleep(1)
             print(self.term.clear)
@@ -35,8 +38,65 @@ class SekureKlient:
         self.run()
         print(self.term.exit_fullscreen)
 
+    def run(self):
+        while self.runvar:
+            if not self.connected:
+                self.mainMenu()
+            else:
+                self.connectedMenu()
+        print("Quitting...")
+
+    def spinnyThing(self):
+        word = "Decrypted"
+        print(self.term.clear)
+        output = ""
+        for i in word:
+            output += i
+            print(self.term.move(0,0))
+            print(output)
+            time.sleep(.2)
+
+
+    def initMainMenu(self):
+        self.mainMenuObj = {
+        '1':{'function':self.connectToServer,'text':'1. Connect to a server'},
+        '2':{'function':self.getOfflineMessages,'text':'2. View messages offline'},
+        '3':{'function':self.keyManagementMenu,'text':'3. Key Management'},
+        '4':{'function':self.stopRun,'text':'4. Quit'}
+        }
+
+    def mainMenu(self):
+        print(self.term.clear)
+        print("Welcome back %s"%str(self.skkm.clientid))
+        for i in self.mainMenuObj:
+            print(self.mainMenuObj[i]['text'])
+        choice = self.userInput("")
+        if choice in self.mainMenuObj:
+            self.mainMenuObj[choice]['function']()
+        else:
+            self.mainMenu()
+
+    def connectToServer(self):
+        server = self.userInput("Enter server address")
+        port = self.userInput("Enter server port")
+        self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        print("Connecting to %s"%server)
+        try:
+            self.socket.connect((server,int(port)))
+            self.negotiateSecurity()
+            self.connected = True
+        except Exception as e:
+            print("Could not connect. %s"%(e))
+            time.sleep(2)
+
+    def getOfflineMessages(self):
+        pass
+
     def keyManagementMenu(self):
         self.skkm.menu()
+
+    def stopRun(self):
+        self.runvar = False
 
     # {
     #   'action':'new'|'del'|'getone'|'getall',
@@ -44,8 +104,21 @@ class SekureKlient:
     #   'message':{'msgid':<messageID>,'message':<message>}
     # }
 
-    def getOfflineMessages(self):
-        pass
+    def initConnectedMenu(self):
+        self.connectedMenuObj  = {
+        '1': self.getAllMessages,
+        '2': self.newMessage,
+        '3': self.deleteMessage,
+        '4': self.keyManagementMenu,
+        '5': self.disconnect
+        }
+
+    def connectedMenu(self):
+        choice = self.userInput("ClientID: %s\n1. View messages\n2. Compose message\n3. Delete message\n4. Key management\n5. Disconnect"%self.skkm.clientid,True)
+        if choice in self.connectedMenuObj:
+            self.connectedMenuObj[choice]()
+        else:
+            self.connectedMenu()
 
     def getOneMessage(self):
         data = {
@@ -67,8 +140,8 @@ class SekureKlient:
         'query':{},
         'message':''
         }
-        self.sendToServer(json.dumps(data))
-        messages = self.recvFromServer()
+        self.sendToServerEncrypted(json.dumps(data))
+        messages = self.recvFromServerEncrypted()
         messages = json.loads(messages)
         for i in messages:
             message = b64decode(i['message']).decode().replace("\'","\"")
@@ -110,39 +183,8 @@ class SekureKlient:
         print("Disconnected...")
         self.connected=False
 
-    def mainMenu(self):
-        choice = self.userInput("Welcome back %s\n1. Connect to a server\n2. View messages offline\n3. Key Management\n4. Quit\n"%str(self.skkm.clientid),True)
-        if choice == "1":
-            server = self.userInput("Enter server address")
-            port = self.userInput("Enter server port")
-            self.connectToServer(server,port)
-        elif choice == "2":
-            self.getOfflineMessages()
-        elif choice == "3":
-            self.keyManagementMenu()
-        elif choice == "4":
-            self.runvar = False
-        else:
-            self.mainMenu()
-
-    def connectedMenu(self):
-        choice = self.userInput("ClientID: %s\n1. View messages\n2. Compose message\n3. Delete message\n4. Key management\n5. Disconnect"%self.skkm.clientid,True)
-        if choice == '1':
-            self.getAllMessages()
-        elif choice == '2':
-            self.newMessage()
-        elif choice == '3':
-            self.deleteMessage()
-        elif choice == '4':
-            self.keyManagementMenu()
-        elif choice == '5':
-            self.disconnect()
-        else:
-            self.connectedMenu()
-
     def negotiateSecurity(self):
         self.sendToServer('negotiateSecurity')
-        print(self.skkm.exportRSAKey())
         self.sendToServer(self.skkm.exportRSAKey())
         self.remotepublic = self.skkm.importRemoteRSAPublic(self.recvFromServer())
         self.sessionaeskey = self.recvFromServer()
@@ -152,17 +194,6 @@ class SekureKlient:
             print("Communication security negotiated...")
         else:
             raise Exception('NegotiatSecurityException')
-
-    def connectToServer(self,server,port):
-        self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        print("Connecting to %s"%server)
-        try:
-            self.socket.connect((server,int(port)))
-            self.negotiateSecurity()
-            self.connected = True
-        except Exception as e:
-            print("Could not connect. %s"%(e))
-            time.sleep(2)
 
     def sendToServer(self,message):
         length = str(len(message)).zfill(4)
@@ -176,24 +207,21 @@ class SekureKlient:
         return message
 
     def sendToServerEncrypted(self,message):
-        pass
+        message = self.sklib.OTPEncrypt(message,self.sessionOTP)
+        length = str(len(message)).zfill(4)
+        self.socket.send(length.encode())
+        self.socket.send(message.encode())
 
     def recvFromServerEncrypted(self):
-        pass
-
-    def run(self):
-        while self.runvar:
-            if not self.connected:
-                self.mainMenu()
-            else:
-                self.connectedMenu()
-        print("Quitting...")
+        length = self.socket.recv(4)
+        length = int(length.decode())
+        message = self.socket.recv(length).decode()
+        message = self.sklib.OTPDecrypt(message,self.sessionOTP)
+        return message
 
 
 
-
-
-sk = SekureKlient('./keybase.db')
+sk = SekureKlient('./client/keybase.db')
 
 
 # sklib = SekureLib()

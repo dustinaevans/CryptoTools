@@ -1,6 +1,6 @@
 import socket, threading, json, blessings
-from sekurelib import SekureLib
-from sekure_keymanager import SKKM
+from libs.sekurelib import SekureLib
+from libs.sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
 
 # Tasks:
@@ -17,11 +17,35 @@ class ServerThread(threading.Thread):
         self.socket = clientsocket
         self.skkm = SKKM(self.term)
         self.keypair = self.sklib.generateRSAKeyPair()
+        self.mode = 'insecure'
         self.skkm.privatekey = self.keypair[0]
         self.skkm.publickey = self.keypair[1]
         self.privatekey = self.keypair[0]
         self.publickey = self.keypair[1]
         print ("New connection added: ", clientAddress)
+
+    def run(self):
+        print("Connection from : ", clientAddress)
+        while True:
+            if self.mode == 'insecure':
+                data = self.recvFromClient()
+            else:
+                data = self.recvFromClientEncrypted()
+            if data == 'negotiateSecurity':
+                self.negotiateSecurity()
+            else:
+                data = json.loads(data)
+                if data['action'] == 'new':
+                    self.newMessage(data)
+                elif data['action'] == 'getone':
+                    self.getOneMessage(data)
+                elif data['action'] == 'getall':
+                    self.getAllMessages(data)
+                elif data['action'] == 'del':
+                    self.deleteMessage(data)
+                else:
+                    print('No action selected')
+        print ("Client at ", clientAddress , " disconnected...")
 
     def newMessage(self,data):
         # {"userid": "053d2b0f-2a63-416e-8ced-455274cff3ba", "rcpt": "dustine", "action": "new", "message": "e9e9c68fafae2341f3bd2ac1975ee054:8e1257e9c14ffbbbb65886bc29b35ecd869d8b38acb1bd74f8acf4f83f24998e"}
@@ -51,7 +75,8 @@ class ServerThread(threading.Thread):
             'hash':line[3]
             }
             messages.append(message)
-        self.socket.send(bytes(json.dumps(messages),'utf8'))
+        self.sendToClientEncrypted(json.dumps(messages))
+        # self.socket.send(bytes(json.dumps(messages),'utf8'))
 
     def deleteMessage(self,data):
         pass
@@ -68,10 +93,17 @@ class ServerThread(threading.Thread):
         self.socket.send(message.encode())
 
     def sendToClientEncrypted(self,message):
-        pass
+        message = self.sklib.OTPEncrypt(message,self.sessionOTP)
+        length = str(len(message)).zfill(4)
+        self.socket.send(length.encode())
+        self.socket.send(message.encode())
 
     def recvFromClientEncrypted(self):
-        pass
+        length = self.socket.recv(4)
+        length = int(length.decode())
+        message = self.socket.recv(length).decode()
+        message = self.sklib.OTPDecrypt(message,self.sessionOTP)
+        return message
 
     def negotiateSecurity(self):
         self.skkm.importRemoteRSAPublic(self.recvFromClient())
@@ -82,32 +114,13 @@ class ServerThread(threading.Thread):
         self.sessionOTP = self.recvFromClient()
         if self.skkm.remotePublic and self.sessionaeskey and self.sessionOTP:
             print("Security negotiated with client")
+            self.mode = 'secure'
         else:
             raise Exception('NegotiatSecurityException')
 
-    def run(self):
-        print("Connection from : ", clientAddress)
-        while True:
-            data = self.recvFromClient()
-            if data == 'negotiateSecurity':
-                self.negotiateSecurity()
-            else:
-                data = json.loads(data)
-                if data['action'] == 'new':
-                    self.newMessage(data)
-                elif data['action'] == 'getone':
-                    self.getOneMessage(data)
-                elif data['action'] == 'getall':
-                    self.getAllMessages(data)
-                elif data['action'] == 'del':
-                    self.deleteMessage(data)
-                else:
-                    print('No action selected')
-        print ("Client at ", clientAddress , " disconnected...")
 
 
-
-LOCALHOST = "127.0.0.1"
+LOCALHOST = "0.0.0.0"
 PORT = 8080
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

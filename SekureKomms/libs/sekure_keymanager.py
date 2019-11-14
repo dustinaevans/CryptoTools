@@ -1,4 +1,4 @@
-from sekurelib import SekureLib
+from .sekurelib import SekureLib
 from Crypto.PublicKey import RSA
 import blessings, time, os
 from base64 import b64encode,b64decode
@@ -51,7 +51,6 @@ class SKKM:
                 passw = self.getUserPassword()
                 db = self.sklib.AESDecrypt(db,passw)
                 self.keydatabase = json.loads(db)
-                print(self.keydatabase)
                 self.clientid = self.keydatabase['clientid']
                 self.privatekey = self.importRSAKey(self.keydatabase['privatekey'])
                 self.publickey = self.importRSAKey(self.keydatabase['publickey'])
@@ -82,15 +81,11 @@ class SKKM:
         dbfile.close()
 
     def importRemoteRSAPublic(self,key):
-        print(key)
         key = b64decode(key)
-        print(key)
-        # time.sleep(2)
         self.remotePublic = RSA.import_key(key)
 
     def importRSAKey(self,key):
         key = b64decode(key).decode()
-        print("Importing: \n%s"%key)
         return RSA.import_key(key)
 
     def exportRSAKey(self,disposition='public'):
@@ -98,8 +93,6 @@ class SKKM:
         publickey = self.publickey.exportKey()
         if disposition == 'private':
             return b64encode(privatekey).decode()
-        # print(publickey)
-        # time.sleep(2)
         return b64encode(publickey).decode()
 
     def getUserPassword(self):
