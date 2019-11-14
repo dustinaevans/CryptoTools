@@ -1,6 +1,6 @@
 from .sekurelib import SekureLib
 from Crypto.PublicKey import RSA
-import blessings, time, os
+import time, os
 from base64 import b64encode,b64decode
 
 class SKKM:

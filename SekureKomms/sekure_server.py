@@ -1,4 +1,6 @@
-import socket, threading, json, blessings
+import socket
+import threading
+import json
 from libs.sekurelib import SekureLib
 from libs.sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
@@ -10,7 +12,7 @@ from base64 import b64encode,b64decode
 class ServerThread(threading.Thread):
 
     def __init__(self,clientAddress,clientsocket):
-        self.term = blessings.Terminal()
+        self.term = None
         self.sklib = SekureLib()
         self.clientAddress = clientAddress
         threading.Thread.__init__(self)
@@ -29,6 +31,10 @@ class ServerThread(threading.Thread):
         while True:
             if self.mode == 'insecure':
                 data = self.recvFromClient()
+                if 'GET' in data:
+                    print("Attempted web connection")
+                    for i in range(10):
+                        self.sendToClient(self.sklib.generateOTPKey(self.sklib.generateAESKey(self.skkm.publickey)))
             else:
                 data = self.recvFromClientEncrypted()
             if data == 'negotiateSecurity':
@@ -83,6 +89,8 @@ class ServerThread(threading.Thread):
 
     def recvFromClient(self):
         length = self.socket.recv(4)
+        if "GET" in length.decode():
+            return "GET"
         length = int(length.decode())
         message = self.socket.recv(length).decode()
         return message
@@ -101,7 +109,10 @@ class ServerThread(threading.Thread):
     def recvFromClientEncrypted(self):
         length = self.socket.recv(4)
         length = int(length.decode())
-        message = self.socket.recv(length).decode()
+        print("Receiving %s bytes from client."%length)
+        message = self.socket.recv(length)
+        message = message.decode()
+        print("Message is %s."%message)
         message = self.sklib.OTPDecrypt(message,self.sessionOTP)
         return message
 

@@ -155,13 +155,6 @@ class SekureKlient:
     def deleteMessage(self):
         pass
 
-    def userInput(self,inputmsg,newpage=False):
-        if newpage:
-            print(self.term.clear)
-        print(inputmsg)
-        usrinput = input(": ")
-        return usrinput
-
     def newMessage(self):
         rcpt = self.userInput("Who would you like to send to?",True)
         message = self.userInput("Enter a message up to 4096 bytes")
@@ -173,7 +166,7 @@ class SekureKlient:
         'query':{},
         'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
         }
-        self.sendToServer(json.dumps(data))
+        self.sendToServerEncrypted(json.dumps(data))
 
     def disconnect(self):
         try:
@@ -219,6 +212,12 @@ class SekureKlient:
         message = self.sklib.OTPDecrypt(message,self.sessionOTP)
         return message
 
+    def userInput(self,inputmsg,newpage=False):
+        if newpage:
+            print(self.term.clear)
+        print(inputmsg)
+        usrinput = input(": ")
+        return usrinput
 
 
 sk = SekureKlient('./client/keybase.db')
