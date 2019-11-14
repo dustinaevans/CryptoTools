@@ -3,6 +3,13 @@ from sekure_keymanager import SKKM
 import blessings, socket, json, time
 from base64 import b64decode,b64encode
 
+# Tasks:
+# Move all keyfile vars to SKKM
+# Change connected menu items to use secure comms
+# Implement SKKM Menu
+# Implement download messages
+# Implement offline message viewing
+
 class SekureKlient:
     def __init__(self,keyfile):
         self.term = blessings.Terminal()
@@ -167,6 +174,12 @@ class SekureKlient:
         length = int(length.decode())
         message = self.socket.recv(length).decode()
         return message
+
+    def sendToServerEncrypted(self,message):
+        pass
+
+    def recvFromServerEncrypted(self):
+        pass
 
     def run(self):
         while self.runvar:

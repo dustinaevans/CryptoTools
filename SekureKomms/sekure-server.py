@@ -3,6 +3,10 @@ from sekurelib import SekureLib
 from sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
 
+# Tasks:
+# Move all keyfile vars to SKKM
+# Change connected menu items to use secure comms
+
 class ServerThread(threading.Thread):
 
     def __init__(self,clientAddress,clientsocket):
@@ -62,6 +66,12 @@ class ServerThread(threading.Thread):
         length = str(len(message)).zfill(4)
         self.socket.send(length.encode())
         self.socket.send(message.encode())
+
+    def sendToClientEncrypted(self,message):
+        pass
+
+    def recvFromClientEncrypted(self):
+        pass
 
     def negotiateSecurity(self):
         self.skkm.importRemoteRSAPublic(self.recvFromClient())
