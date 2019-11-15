@@ -2,6 +2,7 @@ from libs.sekurelib import SekureLib
 from libs.sekure_keymanager import SKKM
 import blessings, socket, json, time
 from base64 import b64decode,b64encode
+import art
 
 # Tasks:
 # Move all keyfile vars to SKKM
@@ -67,17 +68,9 @@ class SekureKlient:
 
     def mainMenu(self):
         print(self.term.clear)
-
         print("https://veteransec.com/")
         print()
-        print("oooooo     oooo               .    .oooooo..o")
-        print("\`888.     .8\'              .o8   d8P\'    \`Y8")
-        print("  `888.   .8'    .ooooo.  .o888oo Y88bo.       .ooooo.   .ooooo.")
-        print("   `888. .8'    d88\' `88b   888    `\"Y8888o.  d88' `88b d88' `Y8")
-        print("    `888.8\'     888ooo888   888        `\"Y88b 888ooo888 888")
-        print("     `888'      888    .o   888 . oo     .d8P 888    .o 888   .o8")
-        print("      `8'       `Y8bod8P'   \"888\" 8\"\"88888P'  `Y8bod8P' `Y8bod8P'")
-        print()
+        art.randomArt()
         print("Welcome back %s"%str(self.skkm.clientid))
         for i in self.mainMenuObj:
             print(self.mainMenuObj[i]['text'])
@@ -154,17 +147,26 @@ class SekureKlient:
         self.sendToServerEncrypted(json.dumps(data))
         messages = self.recvFromServerEncrypted()
         messages = json.loads(messages)
-        fd = open('./client/messages.msg','a+')
-        for i in messages:
-            for line in fd:
-                print(json.dumps(line),json.dumps(i))
-                if json.dumps(line) == json.dumps(i):
-                    print("Message in database")
-                else:
-                    fd.write(json.dumps(i)+"\n")
-            message = b64decode(i['message']).decode().replace("\'","\"").strip()
+        msgfile = open('./client/messages.msg','a+')
+        firstChar = msgfile.read(1)
+        msgfile.seek(0)
+        for msg in messages:
+            if firstChar:
+                print("file not empty")
+                for line in msgfile:
+                    print(json.dumps(line),json.dumps(msg))
+                    if json.dumps(line) == json.dumps(msg):
+                        print("Message in database")
+                    else:
+                        msgfile.write(json.dumps(msg)+"\n")
+                msgfile.seek(0)
+            else:
+                print("file empty")
+                msgfile.write(json.dumps(msg)+"\n")
+                msgfile.seek(0)
+            message = b64decode(msg['message']).decode().replace("\'","\"").strip()
             message = json.loads(message)
-            print("Message ID: %s"%i['id'])
+            print("Message ID: %s"%msg['id'])
             print("Sender: %s"%message['userid'])
             print("Length: %s"%len(message['message']))
             print()
