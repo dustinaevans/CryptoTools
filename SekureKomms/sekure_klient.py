@@ -60,13 +60,24 @@ class SekureKlient:
     def initMainMenu(self):
         self.mainMenuObj = {
         '1':{'function':self.connectToServer,'text':'1. Connect to a server'},
-        '2':{'function':self.getOfflineMessages,'text':'2. View messages offline'},
+        '2':{'function':self.viewOfflineMessages,'text':'2. View messages offline'},
         '3':{'function':self.keyManagementMenu,'text':'3. Key Management'},
         '4':{'function':self.stopRun,'text':'4. Quit'}
         }
 
     def mainMenu(self):
         print(self.term.clear)
+
+        print("https://veteransec.com/")
+        print()
+        print("oooooo     oooo               .    .oooooo..o")
+        print("\`888.     .8\'              .o8   d8P\'    \`Y8")
+        print("  `888.   .8'    .ooooo.  .o888oo Y88bo.       .ooooo.   .ooooo.")
+        print("   `888. .8'    d88\' `88b   888    `\"Y8888o.  d88' `88b d88' `Y8")
+        print("    `888.8\'     888ooo888   888        `\"Y88b 888ooo888 888")
+        print("     `888'      888    .o   888 . oo     .d8P 888    .o 888   .o8")
+        print("      `8'       `Y8bod8P'   \"888\" 8\"\"88888P'  `Y8bod8P' `Y8bod8P'")
+        print()
         print("Welcome back %s"%str(self.skkm.clientid))
         for i in self.mainMenuObj:
             print(self.mainMenuObj[i]['text'])
@@ -89,7 +100,7 @@ class SekureKlient:
             print("Could not connect. %s"%(e))
             time.sleep(2)
 
-    def getOfflineMessages(self):
+    def viewOfflineMessages(self):
         pass
 
     def keyManagementMenu(self):
@@ -143,8 +154,15 @@ class SekureKlient:
         self.sendToServerEncrypted(json.dumps(data))
         messages = self.recvFromServerEncrypted()
         messages = json.loads(messages)
+        fd = open('./client/messages.msg','a+')
         for i in messages:
-            message = b64decode(i['message']).decode().replace("\'","\"")
+            for line in fd:
+                print(json.dumps(line),json.dumps(i))
+                if json.dumps(line) == json.dumps(i):
+                    print("Message in database")
+                else:
+                    fd.write(json.dumps(i)+"\n")
+            message = b64decode(i['message']).decode().replace("\'","\"").strip()
             message = json.loads(message)
             print("Message ID: %s"%i['id'])
             print("Sender: %s"%message['userid'])
