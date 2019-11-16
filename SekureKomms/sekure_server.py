@@ -1,63 +1,75 @@
 import socket
 import threading
 import json
+from libs.utility import Utility
 from libs.sekurelib import SekureLib
 from libs.sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
 
 # Tasks:
-# Move all keyfile vars to SKKM
+# Move all keyfile vars to SKKM specifically negotiateSecurity vars
 # Change connected menu items to use secure comms
 
 class ServerThread(threading.Thread):
 
     def __init__(self,clientAddress,clientsocket):
-        self.term = None
+        self.spot = "init"
+        self.socket = clientsocket
         self.sklib = SekureLib()
+        self.term = None
+        self.skkm = SKKM(self.term)
+        self.utility = Utility(self.socket,self.sklib,self.skkm)
         self.clientAddress = clientAddress
         threading.Thread.__init__(self)
-        self.socket = clientsocket
-        self.skkm = SKKM(self.term)
-        self.keypair = self.sklib.generateRSAKeyPair()
+        self.skkm.generateKeypair()
         self.mode = 'insecure'
-        self.skkm.privatekey = self.keypair[0]
-        self.skkm.publickey = self.keypair[1]
-        self.privatekey = self.keypair[0]
-        self.publickey = self.keypair[1]
         print ("New connection added: ", clientAddress)
 
     def run(self):
         print("Connection from : ", clientAddress)
+        self.spot = "run"
         while True:
-            if self.mode == 'insecure':
-                data = self.recvFromClient()
-                if 'GET' in data:
-                    print("Attempted web connection")
-                    for i in range(10):
-                        self.sendToClient(self.sklib.generateOTPKey(self.sklib.generateAESKey(self.skkm.publickey)))
-            else:
-                data = self.recvFromClientEncrypted()
-            if data == 'negotiateSecurity':
-                self.negotiateSecurity()
-            else:
-                data = json.loads(data)
-                if data['action'] == 'new':
-                    self.newMessage(data)
-                elif data['action'] == 'getone':
-                    self.getOneMessage(data)
-                elif data['action'] == 'getall':
-                    self.getAllMessages(data)
-                elif data['action'] == 'del':
-                    self.deleteMessage(data)
+            try:
+                if self.mode == 'insecure':
+                    data = self.utility.recvFromClient()
+                    if data == 'GET':
+                        print("Attempted web connection")
+                        for i in range(10):
+                            self.utility.sendToClient(self.sklib.generateOTPKey())
+                        self.utility.sendToClient('\r\n')
                 else:
-                    print('No action selected')
+                    self.spot = "Receiving encrypted data"
+                    data = self.utility.recvFromClientEncrypted()
+                if data == 'negotiateSecurity':
+                    self.negotiateSecurity()
+                else:
+                    self.spot = "Run data processing"
+                    data = json.loads(data)
+                    if data['action'] == 'new':
+                        self.spot = "Run new"
+                        self.newMessage(data)
+                    elif data['action'] == 'getall':
+                        self.spot = "Run getall"
+                        self.getAllMessages(data)
+                    elif data['action'] == 'del':
+                        self.spot = "Run delete"
+                        self.deleteMessage(data)
+                    else:
+                        print('No action selected')
+            except Exception as e:
+                print(self.spot,e)
+                break
         print ("Client at ", clientAddress , " disconnected...")
 
     def newMessage(self,data):
-        # {"userid": "053d2b0f-2a63-416e-8ced-455274cff3ba", "rcpt": "dustine", "action": "new", "message": "e9e9c68fafae2341f3bd2ac1975ee054:8e1257e9c14ffbbbb65886bc29b35ecd869d8b38acb1bd74f8acf4f83f24998e"}
+        self.spot = 'newMessage'
+        # {"userid": "053d2b0f-2a63-416e-8ced-455274cff3ba",
+        # "rcpt": "dustine",
+        # "action": "new",
+        # "message": "e9e9c68fafae2341f3bd2ac1975ee054:8e1257e9c14ffbbbb65886bc29b35ecd869d8b38acb1bd74f8acf4f83f24998e"}
         del data['query']
         del data['action']
-        fd = open('%s.msg'%data['rcpt'],'a')
+        fd = open('./server/%s.msg'%data['rcpt'],'a')
         id = str(self.sklib.generateUUID())
         message = b64encode(bytes(str(data),'utf8')).decode()
         messagelength = len(str(data))
@@ -66,68 +78,44 @@ class ServerThread(threading.Thread):
         fd.write(storedMessage)
         fd.close()
 
-    def getOneMessage(self,data):
-        pass
-
     def getAllMessages(self,data):
-        fd = open('%s.msg'%data['userid'],'r')
+        self.spot = "getAllMessages"
+        fd = open('./server/%s.msg'%data['userid'],'r')
         messages = []
-        for line in fd:
-            line = line.split('.')
-            message = {
-            'id':line[0],
-            'message':line[1],
-            'length':line[2],
-            'hash':line[3]
-            }
-            messages.append(message)
-        self.sendToClientEncrypted(json.dumps(messages))
-        # self.socket.send(bytes(json.dumps(messages),'utf8'))
+        try:
+            for line in fd:
+                line = line.split('.')
+                message = {
+                'id':line[0],
+                'message':line[1],
+                'length':line[2],
+                'hash':line[3].strip()
+                }
+                messages.append(message)
+                self.utility.sendToClientEncrypted(json.dumps(messages))
+        except:
+            self.utility.sendToClientEncrypted(json.dumps([]))
 
     def deleteMessage(self,data):
-        pass
-
-    def recvFromClient(self):
-        length = self.socket.recv(4)
-        if "GET" in length.decode():
-            return "GET"
-        length = int(length.decode())
-        message = self.socket.recv(length).decode()
-        return message
-
-    def sendToClient(self,message):
-        length = str(len(message)).zfill(4)
-        self.socket.send(length.encode())
-        self.socket.send(message.encode())
-
-    def sendToClientEncrypted(self,message):
-        message = self.sklib.OTPEncrypt(message,self.sessionOTP)
-        length = str(len(message)).zfill(4)
-        self.socket.send(length.encode())
-        self.socket.send(message.encode())
-
-    def recvFromClientEncrypted(self):
-        length = self.socket.recv(4)
-        length = int(length.decode())
-        print("Receiving %s bytes from client."%length)
-        message = self.socket.recv(length)
-        message = message.decode()
-        print("Message is %s."%message)
-        message = self.sklib.OTPDecrypt(message,self.sessionOTP)
-        return message
+        self.spot = "deleteMessage"
+        fd = open('./server/%s.msg'%data['userid'],'w')
+        fd.write(self.sklib.generateOTPKey())
+        fd.seek(0)
+        fd.write("")
 
     def negotiateSecurity(self):
-        self.skkm.importRemoteRSAPublic(self.recvFromClient())
-        self.sendToClient(self.skkm.exportRSAKey())
-        self.sessionaeskey = self.sklib.generateAESKey(self.publickey)
-        print("Session Key: %s"%self.sessionaeskey)
-        self.sendToClient(self.sklib.RSAEncrypt(self.sessionaeskey,self.skkm.remotePublic))
-        self.sessionOTP = self.recvFromClient()
-        if self.skkm.remotePublic and self.sessionaeskey and self.sessionOTP:
+        self.spot = "negotiateSecurity"
+        self.skkm.importRemoteRSAPublic(self.utility.recvFromClient())
+        self.utility.sendToClient(self.skkm.exportRSAKey())
+        self.skkm.setSessionAESKey(self.sklib.generateAESKey(self.skkm.getPublicKey()))
+        self.utility.sendToClient(self.sklib.RSAEncrypt(self.skkm.getSessionAESKey(),self.skkm.getRemotePublic()))
+        self.skkm.setSessionOTP(self.utility.recvFromClient())
+        if self.skkm.getRemotePublic() and self.skkm.getSessionAESKey() and self.skkm.getSessionOTP():
             print("Security negotiated with client")
             self.mode = 'secure'
+            self.spot = "Ending security negotiation"
         else:
-            raise Exception('NegotiatSecurityException')
+            raise Exception('NegotiateSecurityException')
 
 
 

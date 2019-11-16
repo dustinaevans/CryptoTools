@@ -9,8 +9,7 @@ import uuid
 
 class SekureLib:
     def __init__(self):
-        self.rounds = 10000
-
+        pass
     def generateSHA(self,data):
         hash_obj = SHA512.new()
         hash_obj.update(bytes(data,'utf8'))
@@ -53,7 +52,7 @@ class SekureLib:
     def generateAESKey(self,publickey):
         keybytes = get_random_bytes(16).hex()
         aeskey = self.generateSHA(keybytes)
-        for i in range(self.rounds):
+        for i in range(10000):
             aeskey = self.generateSHA(aeskey)
         return aeskey
 
@@ -62,7 +61,7 @@ class SekureLib:
         shake = SHAKE256.new()
         shake.update(keybytes)
         out = hexlify(shake.read(32))
-        for count in range(self.rounds):
+        for count in range(10000):
             shake = SHAKE256.new()
             shake.update(out)
             out = hexlify(shake.read(32))
@@ -72,20 +71,22 @@ class SekureLib:
         id = uuid.uuid4()
         return str(id)
 
-    def generateOTPKey(self,password):
+    def generateOTPKey(self):
         shake = SHAKE256.new()
-        shake.update(password.encode())
-        out = hexlify(shake.read(4096))
-        for count in range(self.rounds):
+        shake.update(get_random_bytes(16))
+        out = hexlify(shake.read(4608))
+        for count in range(10000):
             shake = SHAKE256.new()
             shake.update(out)
-            out = hexlify(shake.read(4096))
+            shake.update(get_random_bytes(16))
+            out = hexlify(shake.read(4608))
         return out.decode()
 
     def OTPEncrypt(self,ptmessage,key):
         ctmessage=bytearray('','utf8')
         if len(key) < len(ptmessage):
-            print("Keysize is too small")
+            print("Encrypt Keysize is too small")
+            print(len(key)," Compared to ",len(ptmessage))
             return None
         if type(key) == str:
             key = key.encode()
@@ -99,7 +100,8 @@ class SekureLib:
         ptmessage = bytearray('','utf8')
         ctmessage = bytearray.fromhex(ctmessage)
         if len(key) < len(ctmessage):
-            print("Keysize is too small")
+            print("Decrypt Keysize is too small")
+            print(len(key)," Compared to ",len(ctmessage))
             return None
         if type(key) == str:
             key = key.encode()

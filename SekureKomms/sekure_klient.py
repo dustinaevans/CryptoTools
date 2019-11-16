@@ -1,15 +1,13 @@
 from libs.sekurelib import SekureLib
 from libs.sekure_keymanager import SKKM
+from libs.utility import Utility
 import blessings, socket, json, time
 from base64 import b64decode,b64encode
 import art
 
 # Tasks:
 # Move all keyfile vars to SKKM
-# Change connected menu items to use secure comms
 # Implement SKKM Menu
-# Implement download messages
-# Implement offline message viewing
 
 class SekureKlient:
     def __init__(self,keyfile):
@@ -21,7 +19,6 @@ class SekureKlient:
         self.socket = None
         self.runvar = True
         self.keyfile = keyfile
-        self.keydatabase = None
         self.initMainMenu()
         self.initConnectedMenu()
         print(self.term.clear)
@@ -36,15 +33,20 @@ class SekureKlient:
             print("Failed to load database, generating new DB -",e)
             self.skkm.generateDatabase()
             self.skkm.saveKeyDatabase()
+        self.utility = Utility(self.socket,self.sklib,self.skkm)
         self.run()
         print(self.term.exit_fullscreen)
 
     def run(self):
         while self.runvar:
-            if not self.connected:
-                self.mainMenu()
-            else:
-                self.connectedMenu()
+            try:
+                if not self.connected:
+                    self.mainMenu()
+                else:
+                    self.connectedMenu()
+            except Exception as e:
+                print(e)
+                time.sleep(5)
         print("Quitting...")
 
     def spinnyThing(self):
@@ -55,8 +57,7 @@ class SekureKlient:
             output += i
             print(self.term.move(0,0))
             print(output)
-            time.sleep(.2)
-
+            time.sleep(.1)
 
     def initMainMenu(self):
         self.mainMenuObj = {
@@ -71,8 +72,9 @@ class SekureKlient:
         print("https://veteransec.com/")
         print()
         art.randomArt()
-        print("Welcome back %s"%str(self.skkm.clientid))
-        for i in self.mainMenuObj:
+        print("Welcome back %s"%str(self.skkm.getClientID()))
+        for i in range(len(self.mainMenuObj)):
+            i = str(i+1)
             print(self.mainMenuObj[i]['text'])
         choice = self.userInput("")
         if choice in self.mainMenuObj:
@@ -87,6 +89,7 @@ class SekureKlient:
         print("Connecting to %s"%server)
         try:
             self.socket.connect((server,int(port)))
+            self.utility = Utility(self.socket,self.sklib,self.skkm)
             self.negotiateSecurity()
             self.connected = True
         except Exception as e:
@@ -94,7 +97,52 @@ class SekureKlient:
             time.sleep(2)
 
     def viewOfflineMessages(self):
-        pass
+        fd = open('./client/messages.msg','r')
+        messagesObj = {}
+        index = 1
+        message = None
+        choice = ""
+        for line in fd:
+            messagesObj[str(index)]=line
+            index+=1
+        while choice != 'q':
+            print(self.term.clear)
+            for i in range(len(messagesObj)):
+                i = str(i+1)
+                rawmessage = json.loads(messagesObj[i])
+                message = b64decode(rawmessage['message']).decode().replace("\'","\"").strip()
+                message = json.loads(message)
+                print(i+'.')
+                print("Message ID: %s"%rawmessage['id'])
+                print("Sender: %s"%message['userid'])
+                print("Length: %s"%len(message['message']))
+                print()
+            choice = self.userInput("Select a message to read. Enter q to go back.")
+            if choice == 'q':
+                pass
+            else:
+                print(self.term.clear)
+                chosen = json.loads(messagesObj[choice])
+                message = b64decode(chosen['message']).decode().replace("\'","\"").strip()
+                message = json.loads(message)
+                sender = message['userid']
+                recipient = message['rcpt']
+                ctmessage = message['message']
+                for z in range(3):
+                    key = self.skkm.getUserPassword()
+                    try:
+                        ptmessage = self.sklib.AESDecrypt(ctmessage,key)
+                        id = chosen['id']
+                        print(self.term.clear)
+                        print("ID: %s"%id)
+                        print("Sender: %s"%sender)
+                        print("Recipient: %s"%recipient)
+                        print("Message: %s"%ptmessage)
+                        print()
+                        input("Press enter to continue...")
+                        break
+                    except:
+                        print('Incorrect password')
 
     def keyManagementMenu(self):
         self.skkm.menu()
@@ -110,7 +158,7 @@ class SekureKlient:
 
     def initConnectedMenu(self):
         self.connectedMenuObj  = {
-        '1': self.getAllMessages,
+        '1': self.syncMessages,
         '2': self.newMessage,
         '3': self.deleteMessage,
         '4': self.keyManagementMenu,
@@ -118,75 +166,56 @@ class SekureKlient:
         }
 
     def connectedMenu(self):
-        choice = self.userInput("ClientID: %s\n1. View messages\n2. Compose message\n3. Delete message\n4. Key management\n5. Disconnect"%self.skkm.clientid,True)
+        choice = self.userInput("ClientID: %s\n1. Sync messages\n2. Compose message\n3. Delete message\n4. Key management\n5. Disconnect"%self.skkm.getClientID(),True)
         if choice in self.connectedMenuObj:
             self.connectedMenuObj[choice]()
         else:
             self.connectedMenu()
 
-    def getOneMessage(self):
-        data = {
-        'action':'getone',
-        'query':{'messageid':'12345'},
-        'message':''
-        }
-        recv = self.socket.sendall(data.encode())
-        print(recv)
-
-    def getAllMessages(self):
+    def syncMessages(self):
         # {"message": "eyd1c2VyaWQnOiAnMDUzZDJiMGYtMmE2My00MTZlLThjZWQtNDU1Mjc0Y2ZmM2JhJywgJ3JjcHQnOiAnMDUzZDJiMGYtMmE2My00MTZlLThjZWQtNDU1Mjc0Y2ZmM2JhJywgJ21lc3NhZ2UnOiAnYWUzYjgzOGI5NzA0ZGZlMDNjN2RhYThkNGZlMzJkOTQ6ZGIzNTM1OTY0MDk4MmY4ZDZjZDJjMDFhNGM0YTI5Y2QnfQ==",
         # "id": "568358dc-fce8-493f-b9a7-b65ca902172b",
         # "hash": "407a469d55da229617ed36f14c8c706eeda9e658771f9823b3b8e1f2fcf71367847b2917df71eab2c947e0da1ac10fb39c9a835afbb70bfcec23acaa08dd43ec\\n",
         # "length": "178"}
         data = {
-        'userid':str(self.skkm.clientid),
+        'userid':str(self.skkm.getClientID()),
         'action':'getall',
         'query':{},
         'message':''
         }
-        self.sendToServerEncrypted(json.dumps(data))
-        messages = self.recvFromServerEncrypted()
+        self.utility.sendToServerEncrypted(json.dumps(data))
+        messages = self.utility.recvFromServerEncrypted()
         messages = json.loads(messages)
-        msgfile = open('./client/messages.msg','a+')
-        firstChar = msgfile.read(1)
-        msgfile.seek(0)
-        for msg in messages:
-            if firstChar:
-                print("file not empty")
-                for line in msgfile:
-                    print(json.dumps(line),json.dumps(msg))
-                    if json.dumps(line) == json.dumps(msg):
-                        print("Message in database")
-                    else:
-                        msgfile.write(json.dumps(msg)+"\n")
-                msgfile.seek(0)
-            else:
-                print("file empty")
-                msgfile.write(json.dumps(msg)+"\n")
-                msgfile.seek(0)
-            message = b64decode(msg['message']).decode().replace("\'","\"").strip()
-            message = json.loads(message)
-            print("Message ID: %s"%msg['id'])
-            print("Sender: %s"%message['userid'])
-            print("Length: %s"%len(message['message']))
-            print()
+        newmessagecount = 0
+        for rawmessage in messages:
+            newmessagecount += self.saveMessage(rawmessage)
+        print("Synced %s new messages."%newmessagecount)
         input("Press any key to continue...")
 
     def deleteMessage(self):
-        pass
+        data = {
+        'userid':str(self.skkm.getClientID()),
+        'action':'del',
+        'query':{},
+        'message':''
+        }
+        self.utility.sendToServerEncrypted(json.dumps(data))
+        print(self.term.clear)
+        print("All messages have been deleted from the server.")
+        input("Press enter to continue...")
 
     def newMessage(self):
         rcpt = self.userInput("Who would you like to send to?",True)
         message = self.userInput("Enter a message up to 4096 bytes")
         passw = self.userInput('Enter an encryption password')
         data = {
-        'userid':str(self.skkm.clientid),
+        'userid':str(self.skkm.getClientID()),
         'rcpt': rcpt,
         'action':'new',
         'query':{},
         'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
         }
-        self.sendToServerEncrypted(json.dumps(data))
+        self.utility.sendToServerEncrypted(json.dumps(data))
 
     def disconnect(self):
         try:
@@ -197,40 +226,34 @@ class SekureKlient:
         self.connected=False
 
     def negotiateSecurity(self):
-        self.sendToServer('negotiateSecurity')
-        self.sendToServer(self.skkm.exportRSAKey())
-        self.remotepublic = self.skkm.importRemoteRSAPublic(self.recvFromServer())
-        self.sessionaeskey = self.recvFromServer()
-        self.sessionOTP = self.sklib.generateOTPKey(self.sklib.generateAESKey(self.skkm.publickey))
-        self.sendToServer(self.sessionOTP)
-        if self.skkm.remotePublic and self.sessionaeskey and self.sessionOTP:
+        self.utility.sendToServer('negotiateSecurity')
+        self.utility.sendToServer(self.skkm.exportRSAKey())
+        self.skkm.importRemoteRSAPublic(self.utility.recvFromServer())
+        self.skkm.setSessionAESKey(self.utility.recvFromServer())
+        self.skkm.setSessionOTP(self.sklib.generateOTPKey())
+        self.utility.sendToServer(self.skkm.getSessionOTP())
+        if self.skkm.getRemotePublic() and self.skkm.getSessionAESKey() and self.skkm.getRemotePublic():
             print("Communication security negotiated...")
+            input("Press enter to continue...")
         else:
-            raise Exception('NegotiatSecurityException')
+            raise Exception('NegotiateSecurityException')
 
-    def sendToServer(self,message):
-        length = str(len(message)).zfill(4)
-        self.socket.send(length.encode())
-        self.socket.send(message.encode())
-
-    def recvFromServer(self):
-        length = self.socket.recv(4)
-        length = int(length.decode())
-        message = self.socket.recv(length).decode()
-        return message
-
-    def sendToServerEncrypted(self,message):
-        message = self.sklib.OTPEncrypt(message,self.sessionOTP)
-        length = str(len(message)).zfill(4)
-        self.socket.send(length.encode())
-        self.socket.send(message.encode())
-
-    def recvFromServerEncrypted(self):
-        length = self.socket.recv(4)
-        length = int(length.decode())
-        message = self.socket.recv(length).decode()
-        message = self.sklib.OTPDecrypt(message,self.sessionOTP)
-        return message
+    def saveMessage(self,message):
+        msgids = []
+        msgfile = open('./client/messages.msg','r')
+        newmessagecount = 0
+        for line in msgfile:
+            curmsg = json.loads(line)
+            msgids.append(curmsg['id'])
+        msgfile.close()
+        msgfile = open('./client/messages.msg','a+')
+        if message['id'] in msgids:
+            pass
+        else:
+            msgfile.write(json.dumps(message)+'\n')
+            newmessagecount += 1
+        msgfile.close()
+        return newmessagecount
 
     def userInput(self,inputmsg,newpage=False):
         if newpage:

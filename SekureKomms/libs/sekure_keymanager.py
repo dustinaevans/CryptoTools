@@ -10,12 +10,11 @@ class SKKM:
 
     def menu(self):
         print(self.term.clear)
-        print("RSA Private: \n%s\n"%self.privatekey)
-        print("RSA Public: \n%s\n"%self.publickey)
+        print("RSA Private: \n%s\n"%self._privatekey)
+        print("RSA Public: \n%s\n"%self._publickey)
         print("RSA Private String: \n%s\n"%self.exportRSAKey('private'))
         print("RSA Public String: \n%s\n"%self.exportRSAKey())
         input("Press any key to continue...")
-
 
     def getKey(self,id):
         pass
@@ -24,16 +23,16 @@ class SKKM:
         pass
 
     def generateDatabase(self):
-        self.keypair = self.sklib.generateRSAKeyPair()
-        self.privatekey = self.keypair[0]
-        self.publickey = self.keypair[1]
-        self.clientid = self.sklib.generateUUID()
-        self.HMACSecret = self.sklib.generateHMACSecret()
-        self.keydatabase = {
-            'clientid':self.clientid,
-            'privatekey':self.privatekey,
-            'publickey':self.publickey,
-            'HMACSecret':self.HMACSecret,
+        self._keypair = self.sklib.generateRSAKeyPair()
+        self._privatekey = self._keypair[0]
+        self._publickey = self._keypair[1]
+        self._clientid = self.sklib.generateUUID()
+        self._HMACSecret = self.sklib.generateHMACSecret()
+        self._keydatabase = {
+            'clientid':self._clientid,
+            'privatekey':self._privatekey,
+            'publickey':self._publickey,
+            'HMACSecret':self._HMACSecret,
             'OTPKeys': []
         }
 
@@ -50,10 +49,10 @@ class SKKM:
                 db = dbfile.read()
                 passw = self.getUserPassword()
                 db = self.sklib.AESDecrypt(db,passw)
-                self.keydatabase = json.loads(db)
-                self.clientid = self.keydatabase['clientid']
-                self.privatekey = self.importRSAKey(self.keydatabase['privatekey'])
-                self.publickey = self.importRSAKey(self.keydatabase['publickey'])
+                self._keydatabase = json.loads(db)
+                self._clientid = self._keydatabase['clientid']
+                self._privatekey = self.importRSAKey(self._keydatabase['privatekey'])
+                self._publickey = self.importRSAKey(self._keydatabase['publickey'])
                 del passw
                 dbfile.close()
                 break
@@ -70,8 +69,8 @@ class SKKM:
         exportdb = {}
         exportdb['privatekey'] = self.exportRSAKey('private')
         exportdb['publickey'] = self.exportRSAKey()
-        exportdb['clientid'] = self.keydatabase['clientid']
-        exportdb['HMACSecret'] = self.keydatabase['HMACSecret']
+        exportdb['clientid'] = self._keydatabase['clientid']
+        exportdb['HMACSecret'] = self._keydatabase['HMACSecret']
         dbfile = open(self.keyfile,'w+')
         passw = self.getUserPassword()
         db = json.dumps(exportdb)
@@ -82,22 +81,48 @@ class SKKM:
 
     def importRemoteRSAPublic(self,key):
         key = b64decode(key)
-        self.remotePublic = RSA.import_key(key)
+        self._remotePublic = RSA.import_key(key)
 
     def importRSAKey(self,key):
         key = b64decode(key).decode()
         return RSA.import_key(key)
 
     def exportRSAKey(self,disposition='public'):
-        privatekey = self.privatekey.exportKey()
-        publickey = self.publickey.exportKey()
+        privatekey = self._privatekey.exportKey()
+        publickey = self._publickey.exportKey()
         if disposition == 'private':
             return b64encode(privatekey).decode()
         return b64encode(publickey).decode()
 
+    def setSessionAESKey(self,key):
+        self._sessionaeskey = key
+
+    def getSessionAESKey(self):
+        return self._sessionaeskey
+
+    def getSessionOTP(self):
+        return self._sessionOTP
+
+    def setSessionOTP(self,sessionOTP):
+        self._sessionOTP = sessionOTP
+
+    def getClientID(self):
+        return self._clientid
+
+    def getRemotePublic(self):
+        return self._remotePublic
+
+    def getPublicKey(self):
+        return self._publickey
+
+    def generateKeypair(self):
+        self._keypair = self.sklib.generateRSAKeyPair()
+        self._privatekey = self._keypair[0]
+        self._publickey = self._keypair[1]
+
     def getUserPassword(self):
         import getpass
-        self.term.clear()
-        self.term.move(0, 0)
+        # self.term.clear()
+        # self.term.move(0, 0)
         passw = getpass.getpass("Encryption password: ")
         return passw
