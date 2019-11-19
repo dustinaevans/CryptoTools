@@ -8,6 +8,8 @@ import art
 # Tasks:
 # Move all keyfile vars to SKKM
 # Implement SKKM Menu
+# Fix RSA encrypt and decrypt functions
+# Add killswitch
 
 class SekureKlient:
     def __init__(self,keyfile):

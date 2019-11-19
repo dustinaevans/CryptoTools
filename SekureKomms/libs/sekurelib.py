@@ -21,13 +21,34 @@ class SekureLib:
         return [private,public]
 
     def RSAEncrypt(self,message,publickey):
+        rsaStandardSize = 245
         cipher_rsa = PKCS1_OAEP.new(publickey)
-        return cipher_rsa.encrypt(message.encode()).hex()
+        message = bytearray(message,'utf8')
+        temparray = bytearray('','utf8')
+        ciphertext = ""
+        for char in message:
+            templength = len(temparray)
+            if (templength < rsaStandardSize):
+                temparray.append(char)
+            if (templength == rsaStandardSize):
+                ciphertext.append(cipher_rsa.encrypt(temparray).hex())
+                temparray = bytearray('','utf8')
+        return ciphertext
 
     def RSADecrypt(self,message,privatekey):
+        rsaStandardSize = 245
         message = bytearray.fromhex(message)
+        temparray = bytearray('','utf8')
+        plaintext =  ""
         cipher_rsa = PKCS1_OAEP.new(privatekey)
-        return cipher_rsa.decrypt(message).decode()
+        for char in message:
+            templength = len(temparray)
+            if (templength < rsaStandardSize):
+                temparray.append(char)
+            if (templength == rsaStandardSize):
+                plaintext.append(cipher_rsa.decrypt(temparray).decode())
+                temparray = bytearray('','utf8')
+        return plaintext
 
     def AESEncrypt(self,message,key):
         key = bytearray(key,'utf8')
