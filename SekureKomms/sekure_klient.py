@@ -29,7 +29,6 @@ class SekureKlient:
         try:
             print("Trying to load database from file...")
             self.skkm.loadKeyDatabase(self.keyfile)
-            self.spinnyThing()
             print("DB loaded successfully.")
             time.sleep(1)
             print(self.term.clear)
@@ -52,16 +51,6 @@ class SekureKlient:
                 print(e)
                 time.sleep(5)
         print("Quitting...")
-
-    def spinnyThing(self):
-        word = "Decrypted"
-        print(self.term.clear)
-        output = ""
-        for i in word:
-            output += i
-            print(self.term.move(0,0))
-            print(output)
-            time.sleep(.1)
 
     def initMainMenu(self):
         self.mainMenuObj = {
@@ -187,13 +176,13 @@ class SekureKlient:
         'query':{},
         'message':''
         }
-        self.utility.sendToServerEncrypted(json.dumps(data))
-        print("Sent encrypted message")
-        messages = self.utility.recvFromServerEncrypted()
+        self.utility.sendEncrypted(json.dumps(data))
+        messages = self.utility.recvEncrypted()
         messages = json.loads(messages)
         newmessagecount = 0
-        for rawmessage in messages:
-            newmessagecount += self.saveMessage(rawmessage)
+        if len(messages) > 0:
+            for rawmessage in messages:
+                newmessagecount += self.saveMessage(rawmessage)
         print("Synced %s new messages."%newmessagecount)
         input("Press any key to continue...")
 
@@ -204,7 +193,7 @@ class SekureKlient:
         'query':{},
         'message':''
         }
-        self.utility.sendToServerEncrypted(json.dumps(data))
+        self.utility.sendEncrypted(json.dumps(data))
         print(self.term.clear)
         print("All messages have been deleted from the server.")
         input("Press enter to continue...")
@@ -220,7 +209,7 @@ class SekureKlient:
         'query':{},
         'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
         }
-        self.utility.sendToServerEncrypted(json.dumps(data))
+        self.utility.sendEncrypted(json.dumps(data))
 
     def disconnect(self):
         try:

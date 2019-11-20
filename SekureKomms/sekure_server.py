@@ -32,21 +32,15 @@ class ServerThread(threading.Thread):
         while True:
             try:
                 if self.mode == 'insecure':
-                    data = self.utility.recvFromClient()
-                    if data == 'GET':
-                        print("Attempted web connection")
-                        for i in range(10):
-                            self.utility.sendToClient(self.sklib.generateOTPKey())
-                        self.utility.sendToClient('\r\n')
-                    if data == 'negotiateSecurity'+self.sklib.getToken():
-                        self.spot = "negotiateSecurity"
-                        self.utility.serverNegotiateSecurity()
-                        self.mode = 'secure'
+                    self.spot = "negotiateSecurity"
+                    self.utility.serverNegotiateSecurity()
+                    self.mode = 'secure'
                 else:
                     self.spot = "Receiving encrypted data"
-                    data = self.utility.recvFromClientEncrypted()
+                    data = self.utility.recvEncrypted()
                     self.spot = "Run data processing"
                     print("Received encrypted")
+                    print(data)
                     data = json.loads(data)
                     if data['action'] == 'new':
                         self.spot = "Run new"
@@ -83,31 +77,36 @@ class ServerThread(threading.Thread):
         fd.close()
 
     def getAllMessages(self,data):
+        import os
         self.spot = "getAllMessages"
         print(self.spot)
         fd = open('./server/%s.msg'%data['userid'],'r')
         print("Opened message file")
         messages = []
         try:
-            print("Starting try clause")
-            for line in fd:
-                print("Line found")
-                if len(line) <= 1:
-                    raise("EmptyLineException")
-                line = line.split('.')
-                message = {
-                'id':line[0],
-                'message':line[1],
-                'length':line[2],
-                'hash':line[3].strip()
-                }
-                messages.append(message)
-                print("Sending messages")
-                self.utility.sendToClientEncrypted(json.dumps(messages))
-                print("Sent messages")
+            print("Starting getall try clause")
+            if os.stat('./server/%s.msg'%data['userid']).st_size == 0:
+                self.utility.sendEncrypted(json.dumps({}))
+                print("Sent empty message")
+            else:
+                for line in fd:
+                    print("Line found")
+                    if len(line) <= 1:
+                        raise("EmptyLineException")
+                    line = line.split('.')
+                    message = {
+                    'id':line[0],
+                    'message':line[1],
+                    'length':line[2],
+                    'hash':line[3].strip()
+                    }
+                    messages.append(message)
+                    print("Sending messages")
+                    self.utility.sendEncrypted(json.dumps(messages))
+                    print("Sent messages")
         except:
             print("Sending empty")
-            self.utility.sendToClientEncrypted(json.dumps([]))
+            self.utility.sendEncrypted(json.dumps([]))
             print("Sent empty")
         fd.close()
 
@@ -123,15 +122,15 @@ class ServerThread(threading.Thread):
         return token.hex()
 
 
-LOCALHOST = "0.0.0.0"
+LOCALHOST = "127.0.0.1"
 PORT = 8080
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server.bind((LOCALHOST, PORT))
 print("Server started")
 print("Waiting for client request..")
+server.listen(5)
 while True:
-    server.listen(1)
     clientsock, clientAddress = server.accept()
     newthread = ServerThread(clientAddress, clientsock)
     newthread.start()

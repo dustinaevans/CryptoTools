@@ -5,7 +5,7 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Hash import SHA512
 from binascii import hexlify
-import uuid
+import uuid, time
 
 class SekureLib:
     def __init__(self):
@@ -220,4 +220,4 @@ class SekureLib:
             exit(-1)
         else:
             print("All modules passed testing.")
-            input("Press enter to continue...")
+            time.sleep(2)
