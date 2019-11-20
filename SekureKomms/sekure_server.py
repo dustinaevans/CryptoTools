@@ -41,16 +41,19 @@ class ServerThread(threading.Thread):
                     if data == 'negotiateSecurity'+self.sklib.getToken():
                         self.spot = "negotiateSecurity"
                         self.utility.serverNegotiateSecurity()
+                        self.mode = 'secure'
                 else:
                     self.spot = "Receiving encrypted data"
                     data = self.utility.recvFromClientEncrypted()
                     self.spot = "Run data processing"
+                    print("Received encrypted")
                     data = json.loads(data)
                     if data['action'] == 'new':
                         self.spot = "Run new"
                         self.newMessage(data)
                     elif data['action'] == 'getall':
                         self.spot = "Run getall"
+                        print(self.spot)
                         self.getAllMessages(data)
                     elif data['action'] == 'del':
                         self.spot = "Run delete"
@@ -81,10 +84,16 @@ class ServerThread(threading.Thread):
 
     def getAllMessages(self,data):
         self.spot = "getAllMessages"
+        print(self.spot)
         fd = open('./server/%s.msg'%data['userid'],'r')
+        print("Opened message file")
         messages = []
         try:
+            print("Starting try clause")
             for line in fd:
+                print("Line found")
+                if len(line) <= 1:
+                    raise("EmptyLineException")
                 line = line.split('.')
                 message = {
                 'id':line[0],
@@ -93,9 +102,14 @@ class ServerThread(threading.Thread):
                 'hash':line[3].strip()
                 }
                 messages.append(message)
+                print("Sending messages")
                 self.utility.sendToClientEncrypted(json.dumps(messages))
+                print("Sent messages")
         except:
+            print("Sending empty")
             self.utility.sendToClientEncrypted(json.dumps([]))
+            print("Sent empty")
+        fd.close()
 
     def deleteMessage(self,data):
         self.spot = "deleteMessage"
@@ -103,9 +117,6 @@ class ServerThread(threading.Thread):
         fd.write(self.sklib.generateOTPKey())
         fd.seek(0)
         fd.write("")
-
-    def setSecurityMode(self,mode):
-        self.mode = mode
 
     def getToken(self):
         token = self.sklib.generateSHA(self.token)

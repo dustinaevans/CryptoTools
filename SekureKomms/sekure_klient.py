@@ -17,6 +17,7 @@ class SekureKlient:
         self.term = blessings.Terminal()
         print(self.term.enter_fullscreen)
         self.sklib = SekureLib()
+        self.sklib.testSelf()
         self.skkm = SKKM(self.term)
         self.connected = False
         self.socket = None
@@ -92,7 +93,7 @@ class SekureKlient:
         print("Connecting to %s"%server)
         try:
             self.socket.connect((server,int(port)))
-            self.utility = Utility(self.socket,self.sklib,self.skkm)
+            self.utility.setSocket(self.socket)
             self.utility.clientNegotiateSecurity()
             self.connected = True
         except Exception as e:
@@ -187,6 +188,7 @@ class SekureKlient:
         'message':''
         }
         self.utility.sendToServerEncrypted(json.dumps(data))
+        print("Sent encrypted message")
         messages = self.utility.recvFromServerEncrypted()
         messages = json.loads(messages)
         newmessagecount = 0

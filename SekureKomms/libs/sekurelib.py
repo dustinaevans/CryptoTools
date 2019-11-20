@@ -11,7 +11,6 @@ class SekureLib:
     def __init__(self):
         self.debug = False
         self.token = "1234509876"
-        self.testSelf()
 
     def generateSHA(self,data):
         hash_obj = SHA512.new()
@@ -26,7 +25,7 @@ class SekureLib:
 
     def RSAEncrypt(self,message,publickey):
         self.logshit("sekurelib.RSAEncrypt")
-        rsaStandardSize = 256
+        rsaStandardSize = 200
         cipher_rsa = PKCS1_OAEP.new(publickey)
         temparray = ""
         ciphertext = ""
@@ -35,24 +34,17 @@ class SekureLib:
             if count < rsaStandardSize:
                 temparray += message[i]
                 count += 1
-            
-        # for char in message:
-        #     if (count < rsaStandardSize):
-        #         temparray.append(char)
-        #         count += 1
-        #     if (count == rsaStandardSize) or (char == message[-1]):
-        #         tempo = cipher_rsa.encrypt(temparray).hex()
-        #         print(temparray.decode())
-        #         print("Length",len(tempo),"cipher",tempo)
-        #         ciphertext += tempo
-        #         temparray = bytearray('','utf8')
-        #         count = 0
+            if (count == rsaStandardSize) or (i == len(message)-1):
+                temp = cipher_rsa.encrypt(temparray.encode())
+                temp = temp.hex()
+                ciphertext += temp
+                temparray = ""
+                count = 0
         return ciphertext
 
     def RSADecrypt(self,message,privatekey):
         self.logshit("sekurelib.RSADecrypt")
         rsaStandardSize = 512
-        print("Decrypt:",message,len(message))
         cipher_rsa = PKCS1_OAEP.new(privatekey)
         temparray = ""
         plaintext =  ""
@@ -64,20 +56,9 @@ class SekureLib:
             if (count == rsaStandardSize) or (i == len(message)):
                 temp = cipher_rsa.decrypt(bytearray.fromhex(temparray))
                 temp = temp.decode()
+                temparray = ""
                 plaintext += temp
                 count = 0
-        # count = 0
-        # for char in message:
-        #     if (count < rsaStandardSize):
-        #         temparray += char
-        #         count += 1
-        #     if (count == rsaStandardSize) or not message[count+1]:
-        #         print(count,"==",rsaStandardSize," OR ",char,"==",message[-1])
-        #         print("Length: ",count,temparray)
-        #         tempo = cipher_rsa.decrypt(bytearray.fromhex(temparray)).decode()
-        #         plaintext += tempo
-        #         temparray = ""
-        #         count = 0
         return plaintext
 
     def AESEncrypt(self,message,key):
@@ -108,7 +89,7 @@ class SekureLib:
         aeskey = self.generateSHA(keybytes)
         for i in range(10000):
             aeskey = self.generateSHA(aeskey)
-        return aeskey
+        return aeskey[:16]
 
     def generateHMACSecret(self):
         self.logshit("sekurelib.generateHMACSecret")
@@ -180,47 +161,63 @@ class SekureLib:
         self.logshit("dunderstruck")
 
     def testSelf(self):
+        failures = 0
         print("Testing sekurelib internals")
         sha = self.generateSHA("abcde")
         if sha.upper() == "878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1":
             print("SHA: [OK]")
         else:
+            failures += 1
             print("SHA: [FAIL]")
         keypair = self.generateRSAKeyPair()
         if len(keypair) == 2:
             print("RSA KEYPAIR: [OK]")
         else:
+            failures += 1
             print("RSA KEYPAIR: [FAIL]")
-        encrypt = self.RSAEncrypt("abcdeabcdeabcdeabcdeabcde",keypair[1])
+        encrypt = self.RSAEncrypt("878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1",keypair[1])
         decrypt = self.RSADecrypt(encrypt,keypair[0])
-        if decrypt == 'abcdeabcdeabcdeabcdeabcde':
+        if decrypt == '878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1878AE65A92E86CAC011A570D4C30A7EAEC442B85CE8ECA0C2952B5E3CC0628C2E79D889AD4D5C7C626986D452DD86374B6FFAA7CD8B67665BEF2289A5C70B0A1':
             print("RSA Module: [OK]")
         else:
+            failures += 1
             print("RSA Module: [FAIL]")
         aeskey = self.generateAESKey()
         if aeskey:
             print("AES Keygen: [OK]")
         else:
+            failures += 1
             print("AES Keygen: [FAIL]")
         encrypt = self.AESEncrypt("abcde",aeskey)
         decrypt = self.AESDecrypt(encrypt,aeskey)
         if decrypt == "abcde":
             print("AES Module: [OK]")
         else:
+            failures += 1
             print("AES Module: [FAIL]")
         uuid = self.generateUUID()
         if uuid:
             print("UUID Module: [OK]")
         else:
+            failures += 1
             print("UUID Module: [FAIL]")
         otp = self.generateOTPKey()
-        if len(otp) == 4608:
+        if len(otp) > 0:
             print("OTP Generate: [OK]")
         else:
+            failures += 1
             print("OTP Generate: [FAIL]")
         encrypt = self.OTPEncrypt("abcde",otp)
         decrypt = self.OTPDecrypt(encrypt,otp)
         if decrypt == "abcde":
             print("OTP Module: [OK]")
         else:
+            failures += 1
             print("OTP Module: [FAIL]")
+        if failures > 0:
+            print("%s modules failed."%failures)
+            input("Press enter to quit...")
+            exit(-1)
+        else:
+            print("All modules passed testing.")
+            input("Press enter to continue...")

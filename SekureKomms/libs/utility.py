@@ -6,6 +6,9 @@ class Utility:
         self.skkm = skkm
         self.lengthField = 5
 
+    def setSocket(self,socket):
+        self.socket = socket
+
     def sendToServer(self,message):
         # print("Sending",message)
         length = str(len(message)).zfill(self.lengthField)
@@ -68,11 +71,8 @@ class Utility:
         self.sendToServer(self.sklib.RSAEncrypt(self.skkm.getSessionOTP(),self.skkm.getRemotePublic()))
         if self.skkm.getRemotePublic() and self.skkm.getSessionOTP():
             print("Communication security negotiated...")
-            input("Press enter to continue...")
         else:
-            # print("getRemotePublic",self.skkm.getRemotePublic())
-            # print("getSessionOTP",self.skkm.getSessionOTP())
-            print("Exception raised in negotiateSecurity, press enter to continue...")
+            input("Exception raised in negotiateSecurity, press enter to continue...")
             raise Exception('NegotiateSecurityException')
 
     def serverNegotiateSecurity(self):
@@ -81,6 +81,5 @@ class Utility:
         self.skkm.setSessionOTP(self.sklib.RSADecrypt(self.recvFromClient(),self.skkm.getPrivateKey()))
         if self.skkm.getRemotePublic() and self.skkm.getSessionOTP():
             print("Security negotiated with client")
-            self.mode = 'secure'
         else:
             raise Exception('NegotiateSecurityException')
