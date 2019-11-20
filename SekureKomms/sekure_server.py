@@ -13,6 +13,7 @@ from base64 import b64encode,b64decode
 class ServerThread(threading.Thread):
 
     def __init__(self,clientAddress,clientsocket):
+        self.token = "1234509876"
         self.spot = "init"
         self.socket = clientsocket
         self.sklib = SekureLib()
@@ -37,12 +38,12 @@ class ServerThread(threading.Thread):
                         for i in range(10):
                             self.utility.sendToClient(self.sklib.generateOTPKey())
                         self.utility.sendToClient('\r\n')
+                    if data == 'negotiateSecurity'+self.sklib.getToken():
+                        self.spot = "negotiateSecurity"
+                        self.utility.serverNegotiateSecurity()
                 else:
                     self.spot = "Receiving encrypted data"
                     data = self.utility.recvFromClientEncrypted()
-                if data == 'negotiateSecurity':
-                    self.negotiateSecurity()
-                else:
                     self.spot = "Run data processing"
                     data = json.loads(data)
                     if data['action'] == 'new':
@@ -103,20 +104,12 @@ class ServerThread(threading.Thread):
         fd.seek(0)
         fd.write("")
 
-    def negotiateSecurity(self):
-        self.spot = "negotiateSecurity"
-        self.skkm.importRemoteRSAPublic(self.utility.recvFromClient())
-        self.utility.sendToClient(self.skkm.exportRSAKey())
-        self.skkm.setSessionAESKey(self.sklib.generateAESKey(self.skkm.getPublicKey()))
-        self.utility.sendToClient(self.sklib.RSAEncrypt(self.skkm.getSessionAESKey(),self.skkm.getRemotePublic()))
-        self.skkm.setSessionOTP(self.utility.recvFromClient())
-        if self.skkm.getRemotePublic() and self.skkm.getSessionAESKey() and self.skkm.getSessionOTP():
-            print("Security negotiated with client")
-            self.mode = 'secure'
-            self.spot = "Ending security negotiation"
-        else:
-            raise Exception('NegotiateSecurityException')
+    def setSecurityMode(self,mode):
+        self.mode = mode
 
+    def getToken(self):
+        token = self.sklib.generateSHA(self.token)
+        return token.hex()
 
 
 LOCALHOST = "0.0.0.0"

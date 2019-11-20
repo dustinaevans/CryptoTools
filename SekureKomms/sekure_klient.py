@@ -9,6 +9,7 @@ import art
 # Move all keyfile vars to SKKM
 # Implement SKKM Menu
 # Fix RSA encrypt and decrypt functions
+# Add RSA encrypt/decrypt to negotiateSecurity
 # Add killswitch
 
 class SekureKlient:
@@ -92,7 +93,7 @@ class SekureKlient:
         try:
             self.socket.connect((server,int(port)))
             self.utility = Utility(self.socket,self.sklib,self.skkm)
-            self.negotiateSecurity()
+            self.utility.clientNegotiateSecurity()
             self.connected = True
         except Exception as e:
             print("Could not connect. %s"%(e))
@@ -226,19 +227,6 @@ class SekureKlient:
             pass
         print("Disconnected...")
         self.connected=False
-
-    def negotiateSecurity(self):
-        self.utility.sendToServer('negotiateSecurity')
-        self.utility.sendToServer(self.skkm.exportRSAKey())
-        self.skkm.importRemoteRSAPublic(self.utility.recvFromServer())
-        self.skkm.setSessionAESKey(self.utility.recvFromServer())
-        self.skkm.setSessionOTP(self.sklib.generateOTPKey())
-        self.utility.sendToServer(self.skkm.getSessionOTP())
-        if self.skkm.getRemotePublic() and self.skkm.getSessionAESKey() and self.skkm.getRemotePublic():
-            print("Communication security negotiated...")
-            input("Press enter to continue...")
-        else:
-            raise Exception('NegotiateSecurityException')
 
     def saveMessage(self,message):
         msgids = []

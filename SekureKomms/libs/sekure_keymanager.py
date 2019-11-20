@@ -115,6 +115,9 @@ class SKKM:
     def getPublicKey(self):
         return self._publickey
 
+    def getPrivateKey(self):
+        return self._privatekey
+
     def generateKeypair(self):
         self._keypair = self.sklib.generateRSAKeyPair()
         self._privatekey = self._keypair[0]
