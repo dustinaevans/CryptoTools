@@ -1,7 +1,8 @@
-# This is under development. Do not use this and expect secure comms.
-
-# CryptoPals
-Solutions to the challenges located at https://cryptopals.com/
+# This is under development.
+# This software now seems reasonably secure.
+# You still use this software at your own risk.
+# This documentation is currently not valid.
+# When the first release is published, documentation will be finished.
 
 ## Challenge
 To create a secure communications program/algorithm

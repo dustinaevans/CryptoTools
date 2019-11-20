@@ -201,7 +201,7 @@ class SekureKlient:
     def newMessage(self):
         rcpt = self.userInput("Who would you like to send to?",True)
         message = self.userInput("Enter a message up to 4096 bytes")
-        passw = self.userInput('Enter an encryption password')
+        passw = self.skkm.getUserPassword()
         data = {
         'userid':str(self.skkm.getClientID()),
         'rcpt': rcpt,
@@ -209,6 +209,7 @@ class SekureKlient:
         'query':{},
         'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
         }
+        del passw
         self.utility.sendEncrypted(json.dumps(data))
 
     def disconnect(self):
@@ -221,7 +222,7 @@ class SekureKlient:
 
     def saveMessage(self,message):
         msgids = []
-        msgfile = open('./client/messages.msg','r')
+        msgfile = open('./client/messages.msg','w+')
         newmessagecount = 0
         for line in msgfile:
             curmsg = json.loads(line)
