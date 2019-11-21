@@ -1,4 +1,4 @@
-from Crypto.Hash import SHAKE256
+from Crypto.Hash import SHAKE256,MD5
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
@@ -15,6 +15,11 @@ class SekureLib:
     def generateSHA(self,data):
         hash_obj = SHA512.new()
         hash_obj.update(bytes(data,'utf8'))
+        return hash_obj.hexdigest()
+
+    def generateMD5(self,data):
+        hash_obj = MD5.new()
+        hash_obj.update(data.encode())
         return hash_obj.hexdigest()
 
     def generateRSAKeyPair(self):

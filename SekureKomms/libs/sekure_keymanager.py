@@ -37,7 +37,7 @@ class SKKM:
     def getOTPs(self):
         for key in self._OTPKeys:
             print("ID: %s Uses left: %s"%(key['id'],key['uses']))
-            print("Key starts with: %s"%key['key'][:10])
+            print("Key hash: %s"%self.sklib.generateMD5(key['key']))
         input("Press enter to return to menu")
         self.menu()
 
@@ -50,26 +50,31 @@ class SKKM:
         else:
             id = 1
         self._OTPKeys.append({'id':id,'key':tempotp,'uses':self.maxOtpUse})
-        self.saveKeyDatabase()
+        # self.saveKeyDatabase()
         self.menu()
 
     def expireOTP(self):
         key = self.selectOTP()
-        key['uses'] = 0
-        self._OTPKeys.append(key)
+        for i in range(len(self._OTPKeys)):
+            tempkey = self._OTPKeys[i]
+            if tempkey['id'] == key['id']:
+                self._OTPKeys[i]['uses']=0
+                break
         self.menu()
 
     def importOTP(self):
         self.menu()
 
     def exportOTP(self):
+        import json
         key = self.selectOTP()
-        filename = self.sklib.generateSHA(key['key'])
+        filename = self.sklib.generateMD5(key['key'])
         filename = filename + ".key"
         exportpath = "./client/otpexport/"+filename
         key = json.dumps(key)
         passw = self.getUserPassword()
-        export = self.sklib.AESEncrypt(key)
+        export = self.sklib.AESEncrypt(key,passw)
+        del passw
         fd = open(exportpath,'w+')
         fd.write(export)
         fd.close()
@@ -88,11 +93,9 @@ class SKKM:
         key = None
         for i in range(len(self._OTPKeys)):
             thiskey = self._OTPKeys[i]
-            print(thiskey,i)
+            print("Key ID:",thiskey['id'],"Index",i)
             if thiskey['id'] == choice:
                 key = thiskey
-                del self._OTPKeys[i]
-        print(key)
         return key
 
     def regenerateRSA(self):
