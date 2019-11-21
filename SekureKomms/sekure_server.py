@@ -7,8 +7,7 @@ from libs.sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
 
 # Tasks:
-# Move all keyfile vars to SKKM specifically negotiateSecurity vars
-# Change connected menu items to use secure comms
+
 
 class ServerThread(threading.Thread):
 
@@ -122,7 +121,7 @@ class ServerThread(threading.Thread):
         return token.hex()
 
 
-LOCALHOST = "127.0.0.1"
+LOCALHOST = "0.0.0.0"
 PORT = 8080
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
