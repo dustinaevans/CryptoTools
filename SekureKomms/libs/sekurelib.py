@@ -114,6 +114,7 @@ class SekureLib:
         return str(id)
 
     def generateOTPKey(self):
+        import random
         self.logshit("sekurelib.generateOTPKey")
         shake = SHAKE256.new()
         shake.update(get_random_bytes(16))
@@ -123,25 +124,54 @@ class SekureLib:
             shake.update(out)
             shake.update(get_random_bytes(16))
             out = hexlify(shake.read(4608))
-        return out.decode()
+        out = out.decode()
+        id = str(random.randrange(0,1000)).zfill(4)
+        out = {'id':id,'key':out,'uses':5}
+        return out
+
+    def OTPPad(self,message,length):
+        mlen = len(message)
+        klen = length
+        padlen = klen-mlen
+        padval = "9"
+        padding = padval*padlen
+        message = message + padding
+        return message
+
+    def OTPUnpad(self,message):
+        index = -1
+        testchar = message[index]
+        while testchar == "9":
+            index -= 1
+            testchar = message[index]
+        nonpadindex = (len(message) + index)+1
+        unpaddedtext = message[:nonpadindex]
+        return unpaddedtext
 
     def OTPEncrypt(self,ptmessage,key):
         self.logshit("sekurelib.OTPEncrypt")
         ctmessage=bytearray('','utf8')
-        if len(key) < len(ptmessage):
-            print("Encrypt Keysize is too small")
-            print(len(key)," Compared to ",len(ptmessage))
-            return None
+        key = key['key']
+        if len(ptmessage) < len(key):
+            ptmessage = self.OTPPad(ptmessage,len(key))
         if type(key) == str:
             key = key.encode()
         if type(ptmessage) == str:
             ptmessage = ptmessage.encode()
+        if len(key) < len(ptmessage):
+            print("Encrypt Keysize is too small")
+            print(len(key)," Compared to ",len(ptmessage))
+            return None
+        self.logshit("sekurelib.OTPEncrypt starting XOR")
         for index in range(len(ptmessage)):
             ctmessage.append(ptmessage[index]^key[index])
+        self.logshit("sekurelib.OTPEncrypt Finished XOR")
+        self.logshit(ctmessage)
         return ctmessage.hex()
 
     def OTPDecrypt(self,ctmessage,key):
         self.logshit("sekurelib.OTPDecrypt")
+        key = key['key']
         ptmessage = bytearray('','utf8')
         ctmessage = bytearray.fromhex(ctmessage)
         if len(key) < len(ctmessage):
@@ -152,7 +182,8 @@ class SekureLib:
             key = key.encode()
         for index in range(len(ctmessage)):
             ptmessage.append(ctmessage[index]^key[index])
-        return ptmessage.decode()
+        ptmessage = self.OTPUnpad(ptmessage.decode())
+        return ptmessage
 
     def getToken(self):
         token = self.generateSHA(self.token)
@@ -219,6 +250,14 @@ class SekureLib:
         else:
             failures += 1
             print("OTP Module: [FAIL]")
+        testval = "abcde"
+        padded = self.OTPPad(testval,50)
+        unpadded = self.OTPUnpad(padded)
+        if (len(padded) == 50) and unpadded == "abcde":
+            print("OTP Padding: [OK]")
+        else:
+            print("OTP Padding: [FAIL]")
+            failures += 1
         if failures > 0:
             print("%s modules failed."%failures)
             input("Press enter to quit...")

@@ -56,8 +56,9 @@ class SekureKlient:
         self.mainMenuObj = {
         '1':{'function':self.connectToServer,'text':'1. Connect to a server'},
         '2':{'function':self.viewOfflineMessages,'text':'2. View messages offline'},
-        '3':{'function':self.keyManagementMenu,'text':'3. Key Management'},
-        '4':{'function':self.stopRun,'text':'4. Quit'}
+        '3':{'function':self.newMessage,'text':'3. Create new message'},
+        '4':{'function':self.keyManagementMenu,'text':'4. Key Management'},
+        '5':{'function':self.stopRun,'text':'5. Quit'}
         }
 
     def mainMenu(self):
@@ -76,6 +77,7 @@ class SekureKlient:
             self.mainMenu()
 
     def connectToServer(self):
+        print("Official server: ec2-3-15-201-201.us-east-2.compute.amazonaws.com Port: 8080")
         server = self.userInput("Enter server address")
         port = self.userInput("Enter server port")
         self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -86,8 +88,29 @@ class SekureKlient:
             self.utility.clientNegotiateSecurity()
             self.connected = True
         except Exception as e:
-            print("Could not connect. %s"%(e))
+            print("Could not connect. Exception: %s"%(e))
             time.sleep(2)
+
+    def newMessage(self):
+        rcpt = self.userInput("Who would you like to send to?",True)
+        message = self.userInput("Enter a message up to 4096 characters")
+        passw = self.skkm.selectOTP()
+        # passw = self.skkm.getUserPassword()
+        data = {
+        'userid':str(self.skkm.getClientID()),
+        'rcpt': rcpt,
+        'action':'new',
+        'query':{},
+        'message':self.sklib.OTPEncrypt(message,passw)
+        }
+        self.skkm.decrementOTP(passw)
+        del passw
+        message = json.dumps(data)
+        queue = open('./client/messages.queue','a+')
+        queue.write(message+"\n")
+        print("Message will be held in queue until you synchronize.")
+        input("Press enter to continue...")
+        queue.close()
 
     def viewOfflineMessages(self):
         fd = open('./client/messages.msg','r')
@@ -152,14 +175,13 @@ class SekureKlient:
     def initConnectedMenu(self):
         self.connectedMenuObj  = {
         '1': self.syncMessages,
-        '2': self.newMessage,
-        '3': self.deleteMessage,
-        '4': self.keyManagementMenu,
-        '5': self.disconnect
+        '2': self.deleteMessage,
+        '3': self.keyManagementMenu,
+        '4': self.disconnect
         }
 
     def connectedMenu(self):
-        choice = self.userInput("ClientID: %s\n1. Sync messages\n2. Compose message\n3. Delete message\n4. Key management\n5. Disconnect"%self.skkm.getClientID(),True)
+        choice = self.userInput("ClientID: %s\n1. Sync messages\n2. Delete message (not implemented)\n3. Key management\n4. Disconnect"%self.skkm.getClientID(),True)
         if choice in self.connectedMenuObj:
             self.connectedMenuObj[choice]()
         else:
@@ -170,6 +192,11 @@ class SekureKlient:
         # "id": "568358dc-fce8-493f-b9a7-b65ca902172b",
         # "hash": "407a469d55da229617ed36f14c8c706eeda9e658771f9823b3b8e1f2fcf71367847b2917df71eab2c947e0da1ac10fb39c9a835afbb70bfcec23acaa08dd43ec\\n",
         # "length": "178"}
+        queue = open('./client/messages.queue','r+')
+        for item in queue:
+            self.utility.sendEncrypted(item)
+        queue.write("")
+        queue.close()
         data = {
         'userid':str(self.skkm.getClientID()),
         'action':'getall',
@@ -197,20 +224,6 @@ class SekureKlient:
         print(self.term.clear)
         print("All messages have been deleted from the server.")
         input("Press enter to continue...")
-
-    def newMessage(self):
-        rcpt = self.userInput("Who would you like to send to?",True)
-        message = self.userInput("Enter a message up to 4096 bytes")
-        passw = self.skkm.getUserPassword()
-        data = {
-        'userid':str(self.skkm.getClientID()),
-        'rcpt': rcpt,
-        'action':'new',
-        'query':{},
-        'message':self.sklib.AESEncrypt(message,passw) # Change to one time pad when the keymanager is working
-        }
-        del passw
-        self.utility.sendEncrypted(json.dumps(data))
 
     def disconnect(self):
         try:

@@ -1,6 +1,6 @@
 from .sekurelib import SekureLib
 from Crypto.PublicKey import RSA
-import time, os
+import time, os, json
 from base64 import b64encode,b64decode
 
 class SKKM:
@@ -19,20 +19,33 @@ class SKKM:
         "6":{"function":self.purgeOTP,"text":"6. Purge Expired Keys"},
         "7":{"function":self.regenerateRSA,"text":"7. Regenerate RSA Keys"},
         "8":{"function":self.changeMasterPass,"text":"8. Change Master Password"},
-        "9":{"function":print,"text":"9. Quit and return to main menu"}
+        "9":{"function":self.saveAndExit,"text":"9. Save and exit key management"},
+        "99":{"function":self.printDatabase}
         }
 
     def menu(self):
         print(self.term.clear)
         self.initMenu()
-        for i in range(len(self.menuObj)):
+        for i in range(len(self.menuObj)-1):
             i = str(i+1)
             print(self.menuObj[i]['text'])
-        choice = input(": ")
+        choice = input("Selection: ")
         if choice in self.menuObj:
             self.menuObj[choice]['function']()
         else:
             self.menu()
+
+    def printDatabase(self):
+        print(self._keydatabase)
+        input("Press enter to continue")
+        self.menu()
+
+    def saveAndExit(self):
+        self.saveKeyDatabase()
+
+    def saveKeys(self):
+        self.saveKeyDatabase()
+        self.menu()
 
     def getOTPs(self):
         for key in self._OTPKeys:
@@ -43,14 +56,14 @@ class SKKM:
 
     def newOTP(self):
         tempotp = self.sklib.generateOTPKey()
+        key = tempotp['key']
         id = 0
         if len(self._OTPKeys) > 0:
             print(self._OTPKeys[-1]['id'])
             id = int(self._OTPKeys[-1]['id'])+1
         else:
             id = 1
-        self._OTPKeys.append({'id':id,'key':tempotp,'uses':self.maxOtpUse})
-        # self.saveKeyDatabase()
+        self._OTPKeys.append({'id':id,'key':key,'uses':self.maxOtpUse})
         self.menu()
 
     def expireOTP(self):
@@ -63,6 +76,28 @@ class SKKM:
         self.menu()
 
     def importOTP(self):
+        files = []
+        for file in os.listdir("./client/otpimport"):
+            if file.endswith(".key"):
+                files.append(file)
+        for i in range(len(files)):
+            print("%s. %s"%(i,files[i]))
+        print("Select a key to import...")
+        choice = input(": ")
+        choice = int(choice)
+        fd = open("./client/otpimport/%s"%files[choice],'r+')
+        key = fd.read()
+        passw = self.getUserPassword()
+        importkey = self.sklib.AESDecrypt(key,passw)
+        importkey = json.loads(importkey)
+        key = importkey['key']
+        id = 0
+        if len(self._OTPKeys) > 0:
+            print(self._OTPKeys[-1]['id'])
+            id = int(self._OTPKeys[-1]['id'])+1
+        else:
+            id = 1
+        self._OTPKeys.append({'id':id,'key':key,'uses':self.maxOtpUse})
         self.menu()
 
     def exportOTP(self):
@@ -81,22 +116,35 @@ class SKKM:
         self.menu()
 
     def purgeOTP(self):
+        for i in range(len(self._OTPKeys)):
+            tempkey = self._OTPKeys.pop(0)
+            if tempkey['uses'] == 0:
+                tempkey = None
+            else:
+                self._OTPKeys.append(tempkey)
+        input("Expired keys purged. Press enter to continue...")
         self.menu()
 
     def selectOTP(self):
         print(self.term.clear())
         print("Select a key...\n")
         for otp in self._OTPKeys:
-            print("ID: %s  Uses: %s"%(otp['id'],otp['uses']))
-        choice = input(": ")
+            print("ID: %s Key hash: %s Uses: %s"%(otp['id'],self.sklib.generateMD5(otp['key']),otp['uses']))
+        choice = input("ID: ")
         choice = int(choice)
         key = None
         for i in range(len(self._OTPKeys)):
             thiskey = self._OTPKeys[i]
-            print("Key ID:",thiskey['id'],"Index",i)
             if thiskey['id'] == choice:
                 key = thiskey
         return key
+
+    def decrementOTP(self,key):
+        for i in range(len(self._OTPKeys)):
+            tempkey = self._OTPKeys.pop(0)
+            if key['id'] == tempkey['id']:
+                tempkey['uses'] -= 1
+            self._OTPKeys.append(tempkey)
 
     def regenerateRSA(self):
         self._keypair = self.sklib.generateRSAKeyPair()
@@ -135,7 +183,7 @@ class SKKM:
             try:
                 dbfile = open(database,'r+')
                 db = dbfile.read()
-                passw = self.getUserPassword()
+                passw = self.getMasterPassword()
                 db = self.sklib.AESDecrypt(db,passw)
                 self._keydatabase = json.loads(db)
                 self._clientid = self._keydatabase['clientid']
@@ -184,12 +232,6 @@ class SKKM:
             return b64encode(privatekey).decode()
         return b64encode(publickey).decode()
 
-    def setSessionAESKey(self,key):
-        self._sessionaeskey = key
-
-    def getSessionAESKey(self):
-        return self._sessionaeskey
-
     def getSessionOTP(self):
         return self._sessionOTP
 
@@ -217,12 +259,12 @@ class SKKM:
         import getpass
         # self.term.clear()
         # self.term.move(0, 0)
-        passw = getpass.getpass("Encryption master password: ")
+        passw = getpass.getpass("Enter master password: ")
         return passw
 
     def getUserPassword(self):
         import getpass
         # self.term.clear()
         # self.term.move(0, 0)
-        passw = getpass.getpass("Encryption password: ")
+        passw = getpass.getpass("Choose an encryption password: ")
         return passw
