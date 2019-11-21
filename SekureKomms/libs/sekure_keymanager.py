@@ -7,20 +7,104 @@ class SKKM:
     def __init__(self,terminal):
         self.sklib = SekureLib()
         self.term = terminal
+        self.maxOtpUse = 5
+
+    def initMenu(self):
+        self.menuObj = {
+        "1":{"function":self.getOTPs,"text":"1. View OTP Keys"},
+        "2":{"function":self.newOTP,"text":"2. Create New OTP"},
+        "3":{"function":self.expireOTP,"text":"3. Expire OTP"},
+        "4":{"function":self.importOTP,"text":"4. Import OTP"},
+        "5":{"function":self.exportOTP,"text":"5. Export OTP"},
+        "6":{"function":self.purgeOTP,"text":"6. Purge Expired Keys"},
+        "7":{"function":self.regenerateRSA,"text":"7. Regenerate RSA Keys"},
+        "8":{"function":self.changeMasterPass,"text":"8. Change Master Password"},
+        "9":{"function":print,"text":"9. Quit and return to main menu"}
+        }
 
     def menu(self):
         print(self.term.clear)
-        print("RSA Private: \n%s\n"%self._privatekey)
-        print("RSA Public: \n%s\n"%self._publickey)
-        print("RSA Private String: \n%s\n"%self.exportRSAKey('private'))
-        print("RSA Public String: \n%s\n"%self.exportRSAKey())
-        input("Press any key to continue...")
+        self.initMenu()
+        for i in range(len(self.menuObj)):
+            i = str(i+1)
+            print(self.menuObj[i]['text'])
+        choice = input(": ")
+        if choice in self.menuObj:
+            self.menuObj[choice]['function']()
+        else:
+            self.menu()
 
-    def getKey(self,id):
-        pass
+    def getOTPs(self):
+        for key in self._OTPKeys:
+            print("ID: %s Uses left: %s"%(key['id'],key['uses']))
+            print("Key starts with: %s"%key['key'][:10])
+        input("Press enter to return to menu")
+        self.menu()
 
-    def getAllKeys(self):
-        pass
+    def newOTP(self):
+        tempotp = self.sklib.generateOTPKey()
+        id = 0
+        if len(self._OTPKeys) > 0:
+            print(self._OTPKeys[-1]['id'])
+            id = int(self._OTPKeys[-1]['id'])+1
+        else:
+            id = 1
+        self._OTPKeys.append({'id':id,'key':tempotp,'uses':self.maxOtpUse})
+        self.saveKeyDatabase()
+        self.menu()
+
+    def expireOTP(self):
+        key = self.selectOTP()
+        key['uses'] = 0
+        self._OTPKeys.append(key)
+        self.menu()
+
+    def importOTP(self):
+        self.menu()
+
+    def exportOTP(self):
+        key = self.selectOTP()
+        filename = self.sklib.generateSHA(key['key'])
+        filename = filename + ".key"
+        exportpath = "./client/otpexport/"+filename
+        key = json.dumps(key)
+        passw = self.getUserPassword()
+        export = self.sklib.AESEncrypt(key)
+        fd = open(exportpath,'w+')
+        fd.write(export)
+        fd.close()
+        self.menu()
+
+    def purgeOTP(self):
+        self.menu()
+
+    def selectOTP(self):
+        print(self.term.clear())
+        print("Select a key...\n")
+        for otp in self._OTPKeys:
+            print("ID: %s  Uses: %s"%(otp['id'],otp['uses']))
+        choice = input(": ")
+        choice = int(choice)
+        key = None
+        for i in range(len(self._OTPKeys)):
+            thiskey = self._OTPKeys[i]
+            print(thiskey,i)
+            if thiskey['id'] == choice:
+                key = thiskey
+                del self._OTPKeys[i]
+        print(key)
+        return key
+
+    def regenerateRSA(self):
+        self._keypair = self.sklib.generateRSAKeyPair()
+        self._privatekey = self._keypair[0]
+        self._publickey = self._keypair[1]
+        self.saveKeyDatabase()
+        self.menu()
+
+    def changeMasterPass(self):
+        self.saveKeyDatabase()
+        self.menu()
 
     def generateDatabase(self):
         self._keypair = self.sklib.generateRSAKeyPair()
@@ -28,12 +112,13 @@ class SKKM:
         self._publickey = self._keypair[1]
         self._clientid = self.sklib.generateUUID()
         self._HMACSecret = self.sklib.generateHMACSecret()
+        self._OTPKeys = []
         self._keydatabase = {
             'clientid':self._clientid,
             'privatekey':self._privatekey,
             'publickey':self._publickey,
             'HMACSecret':self._HMACSecret,
-            'OTPKeys': []
+            'OTPKeys': self._OTPKeys
         }
 
     def loadKeyDatabase(self,database):
@@ -53,6 +138,7 @@ class SKKM:
                 self._clientid = self._keydatabase['clientid']
                 self._privatekey = self.importRSAKey(self._keydatabase['privatekey'])
                 self._publickey = self.importRSAKey(self._keydatabase['publickey'])
+                self._OTPKeys = self._keydatabase['OTPKeys']
                 del passw
                 dbfile.close()
                 break
@@ -71,8 +157,9 @@ class SKKM:
         exportdb['publickey'] = self.exportRSAKey()
         exportdb['clientid'] = self._keydatabase['clientid']
         exportdb['HMACSecret'] = self._keydatabase['HMACSecret']
+        exportdb['OTPKeys'] = self._OTPKeys
         dbfile = open(self.keyfile,'w+')
-        passw = self.getUserPassword()
+        passw = self.getMasterPassword()
         db = json.dumps(exportdb)
         db = self.sklib.AESEncrypt(db,passw)
         del passw
@@ -122,6 +209,13 @@ class SKKM:
         self._keypair = self.sklib.generateRSAKeyPair()
         self._privatekey = self._keypair[0]
         self._publickey = self._keypair[1]
+
+    def getMasterPassword(self):
+        import getpass
+        # self.term.clear()
+        # self.term.move(0, 0)
+        passw = getpass.getpass("Encryption master password: ")
+        return passw
 
     def getUserPassword(self):
         import getpass
