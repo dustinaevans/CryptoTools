@@ -117,21 +117,24 @@ class SekureLib:
         import random
         self.logshit("sekurelib.generateOTPKey")
         shake = SHAKE256.new()
-        shake.update(get_random_bytes(16))
-        out = hexlify(shake.read(4608))
+        shake.update(get_random_bytes(128))
+        out = hexlify(shake.read(7000))
         for count in range(10000):
             shake = SHAKE256.new()
             shake.update(out)
             shake.update(get_random_bytes(16))
-            out = hexlify(shake.read(4608))
+            out = hexlify(shake.read(7000))
         out = out.decode()
         id = str(random.randrange(0,1000)).zfill(4)
         out = {'id':id,'key':out,'uses':5}
         return out
 
-    def OTPPad(self,message,length):
+    def OTPPad(self,message,length=4600):
         mlen = len(message)
-        klen = length
+        if length > 4600:
+            klen = 4600
+        else:
+            klen = length
         padlen = klen-mlen
         padval = "9"
         padding = padval*padlen

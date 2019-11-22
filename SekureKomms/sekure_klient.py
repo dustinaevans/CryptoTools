@@ -42,11 +42,12 @@ class SekureKlient:
 
     def run(self):
         while self.runvar:
+            if not self.connected:
+                self.mainMenu()
+            else:
+                self.connectedMenu()
             try:
-                if not self.connected:
-                    self.mainMenu()
-                else:
-                    self.connectedMenu()
+                pass
             except Exception as e:
                 print(e)
                 time.sleep(5)
@@ -82,20 +83,21 @@ class SekureKlient:
         port = self.userInput("Enter server port")
         self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         print("Connecting to %s"%server)
+        self.socket.connect((server,int(port)))
+        self.utility.setSocket(self.socket)
+        self.utility.clientNegotiateSecurity()
+        self.connected = True
         try:
-            self.socket.connect((server,int(port)))
-            self.utility.setSocket(self.socket)
-            self.utility.clientNegotiateSecurity()
-            self.connected = True
+            pass
         except Exception as e:
             print("Could not connect. Exception: %s"%(e))
             time.sleep(2)
 
     def newMessage(self):
         rcpt = self.userInput("Who would you like to send to?",True)
-        message = self.userInput("Enter a message up to 4096 characters")
+        message = self.userInput("\nMessages over 4600 will be truncated.\nEnter a message up to 9000 characters.")
+        message = message[:4600]
         passw = self.skkm.selectOTP()
-        # passw = self.skkm.getUserPassword()
         data = {
         'userid':str(self.skkm.getClientID()),
         'rcpt': rcpt,
@@ -109,7 +111,7 @@ class SekureKlient:
         queue = open('./client/messages.queue','a+')
         queue.write(message+"\n")
         print("Message will be held in queue until you synchronize.")
-        input("Press enter to continue...")
+        self.skkm.saveKeyDatabase()
         queue.close()
 
     def viewOfflineMessages(self):
@@ -145,9 +147,9 @@ class SekureKlient:
                 recipient = message['rcpt']
                 ctmessage = message['message']
                 for z in range(3):
-                    key = self.skkm.getUserPassword()
+                    key = self.skkm.selectOTP()
                     try:
-                        ptmessage = self.sklib.AESDecrypt(ctmessage,key)
+                        ptmessage = self.sklib.OTPDecrypt(ctmessage,key)
                         id = chosen['id']
                         print(self.term.clear)
                         print("ID: %s"%id)
@@ -192,11 +194,6 @@ class SekureKlient:
         # "id": "568358dc-fce8-493f-b9a7-b65ca902172b",
         # "hash": "407a469d55da229617ed36f14c8c706eeda9e658771f9823b3b8e1f2fcf71367847b2917df71eab2c947e0da1ac10fb39c9a835afbb70bfcec23acaa08dd43ec\\n",
         # "length": "178"}
-        queue = open('./client/messages.queue','r+')
-        for item in queue:
-            self.utility.sendEncrypted(item)
-        queue.write("")
-        queue.close()
         data = {
         'userid':str(self.skkm.getClientID()),
         'action':'getall',
@@ -210,7 +207,18 @@ class SekureKlient:
         if len(messages) > 0:
             for rawmessage in messages:
                 newmessagecount += self.saveMessage(rawmessage)
-        print("Synced %s new messages."%newmessagecount)
+        queue = open('./client/messages.queue','r')
+        item = queue.readline()
+        messagessent = 0
+        while item:
+            self.utility.sendEncrypted(item)
+            item = queue.readline()
+            messagessent += 1
+        queue = open('./client/messages.queue','w+')
+        queue.write("")
+        queue.close()
+        print("Sent %s new messages."%messagessent)
+        print("Downloaded %s new messages."%newmessagecount)
         input("Press any key to continue...")
 
     def deleteMessage(self):

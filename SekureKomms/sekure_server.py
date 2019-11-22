@@ -6,7 +6,8 @@ from libs.sekurelib import SekureLib
 from libs.sekure_keymanager import SKKM
 from base64 import b64encode,b64decode
 
-# Tasks:
+# Tasks
+# fix getAllMessages because it tries to encrypt them all at one time instead of encrypting each and sending
 
 
 class ServerThread(threading.Thread):
@@ -38,11 +39,10 @@ class ServerThread(threading.Thread):
                     self.spot = "Receiving encrypted data"
                     data = self.utility.recvEncrypted()
                     self.spot = "Run data processing"
-                    print("Received encrypted")
-                    print(data)
                     data = json.loads(data)
                     if data['action'] == 'new':
                         self.spot = "Run new"
+                        print(self.spot)
                         self.newMessage(data)
                     elif data['action'] == 'getall':
                         self.spot = "Run getall"
@@ -60,13 +60,14 @@ class ServerThread(threading.Thread):
 
     def newMessage(self,data):
         self.spot = 'newMessage'
+        print(self.spot)
         # {"userid": "053d2b0f-2a63-416e-8ced-455274cff3ba",
         # "rcpt": "dustine",
         # "action": "new",
         # "message": "e9e9c68fafae2341f3bd2ac1975ee054:8e1257e9c14ffbbbb65886bc29b35ecd869d8b38acb1bd74f8acf4f83f24998e"}
         del data['query']
         del data['action']
-        fd = open('./server/%s.msg'%data['rcpt'],'a')
+        fd = open('./server/%s.msg'%data['rcpt'],'a+')
         id = str(self.sklib.generateUUID())
         message = b64encode(bytes(str(data),'utf8')).decode()
         messagelength = len(str(data))
@@ -79,8 +80,11 @@ class ServerThread(threading.Thread):
         import os
         self.spot = "getAllMessages"
         print(self.spot)
+        # fd = None
+        # if not os.path.exists('./server/%s.msg'):
+        #     fd = open('./server/%s.msg'%data['userid'],'c')
         fd = open('./server/%s.msg'%data['userid'],'r')
-        print("Opened message file")
+        # print("Opened message file")
         messages = []
         try:
             print("Starting getall try clause")
@@ -89,7 +93,7 @@ class ServerThread(threading.Thread):
                 print("Sent empty message")
             else:
                 for line in fd:
-                    print("Line found")
+                    # print("Line found")
                     if len(line) <= 1:
                         raise("EmptyLineException")
                     line = line.split('.')
@@ -100,11 +104,11 @@ class ServerThread(threading.Thread):
                     'hash':line[3].strip()
                     }
                     messages.append(message)
-                    print("Sending messages")
+                    # print("Sending messages")
                     self.utility.sendEncrypted(json.dumps(messages))
-                    print("Sent messages")
+                    # print("Sent messages")
         except:
-            print("Sending empty")
+            # print("Sending empty")
             self.utility.sendEncrypted(json.dumps([]))
             print("Sent empty")
         fd.close()

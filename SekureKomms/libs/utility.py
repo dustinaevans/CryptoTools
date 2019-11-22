@@ -1,3 +1,5 @@
+import json
+
 class Utility:
 
     def __init__(self,socket,sklib,skkm):
@@ -116,7 +118,8 @@ class Utility:
         self.sendToServer(self.skkm.exportRSAKey())
         self.skkm.importRemoteRSAPublic(self.recvFromServer())
         self.skkm.setSessionOTP(self.sklib.generateOTPKey())
-        self.sendToServer(self.sklib.RSAEncrypt(self.skkm.getSessionOTP(),self.skkm.getRemotePublic()))
+        sessionOTP = json.dumps(self.skkm.getSessionOTP())
+        self.sendToServer(self.sklib.RSAEncrypt(sessionOTP,self.skkm.getRemotePublic()))
         if self.skkm.getRemotePublic() and self.skkm.getSessionOTP():
             print("Communication security negotiated...")
         else:
@@ -128,7 +131,9 @@ class Utility:
         if data == 'negotiateSecurity'+self.sklib.getToken():
             self.skkm.importRemoteRSAPublic(self.recvFromClient())
             self.sendToClient(self.skkm.exportRSAKey())
-            self.skkm.setSessionOTP(self.sklib.RSADecrypt(self.recvFromClient(),self.skkm.getPrivateKey()))
+            sessionOTP = self.sklib.RSADecrypt(self.recvFromClient(),self.skkm.getPrivateKey())
+            sessionOTP = json.loads(sessionOTP)
+            self.skkm.setSessionOTP(sessionOTP)
             if self.skkm.getRemotePublic() and self.skkm.getSessionOTP():
                 print("Security negotiated with client")
             else:

@@ -3,6 +3,10 @@ from Crypto.PublicKey import RSA
 import time, os, json
 from base64 import b64encode,b64decode
 
+
+# Tasks
+# delete key file after import
+
 class SKKM:
     def __init__(self,terminal):
         self.sklib = SekureLib()
@@ -49,7 +53,7 @@ class SKKM:
 
     def getOTPs(self):
         for key in self._OTPKeys:
-            print("ID: %s Uses left: %s"%(key['id'],key['uses']))
+            print("ID: %s Uses left: %s Length: %s"%(key['id'],key['uses'],len(key['key'])))
             print("Key hash: %s"%self.sklib.generateMD5(key['key']))
         input("Press enter to return to menu")
         self.menu()
@@ -59,7 +63,7 @@ class SKKM:
         key = tempotp['key']
         id = 0
         if len(self._OTPKeys) > 0:
-            print(self._OTPKeys[-1]['id'])
+            # print(self._OTPKeys[-1]['id'])
             id = int(self._OTPKeys[-1]['id'])+1
         else:
             id = 1
@@ -93,7 +97,7 @@ class SKKM:
         key = importkey['key']
         id = 0
         if len(self._OTPKeys) > 0:
-            print(self._OTPKeys[-1]['id'])
+            # print(self._OTPKeys[-1]['id'])
             id = int(self._OTPKeys[-1]['id'])+1
         else:
             id = 1
