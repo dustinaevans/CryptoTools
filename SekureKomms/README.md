@@ -7,6 +7,22 @@
 ## Challenge
 To create a secure communications program/algorithm
 
+## Required packages
+Ubuntu:
+
+`sudo apt-get install tpm-tools libtspi-dev libopencryptoki-dev libssl-dev python-pip python-dev build-essential`
+
+Python:
+
+```
+pip3 install pytss pycryptodome blessings
+
+or
+
+pip3 install -r requirements.txt
+
+```
+
 ## Client Key Store Format
 ```
 {

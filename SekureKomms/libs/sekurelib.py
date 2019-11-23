@@ -5,7 +5,7 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Hash import SHA512
 from binascii import hexlify
-import uuid, time
+import uuid, time, pytss
 
 class SekureLib:
     def __init__(self):
@@ -187,6 +187,16 @@ class SekureLib:
             ptmessage.append(ctmessage[index]^key[index])
         ptmessage = self.OTPUnpad(ptmessage.decode())
         return ptmessage
+
+    def getEntropy(self,bytes):
+        ctx = pytss.TspiContext()
+        ctx.connect()
+        tpm = ctx.get_tpm_object()
+        count = 0
+        while count < bytes:
+            data = tpm.generate_random_data(8)
+            print(data)
+            count += 8
 
     def getToken(self):
         token = self.generateSHA(self.token)

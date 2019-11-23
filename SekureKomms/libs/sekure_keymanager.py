@@ -63,7 +63,6 @@ class SKKM:
         key = tempotp['key']
         id = 0
         if len(self._OTPKeys) > 0:
-            # print(self._OTPKeys[-1]['id'])
             id = int(self._OTPKeys[-1]['id'])+1
         else:
             id = 1
@@ -97,11 +96,12 @@ class SKKM:
         key = importkey['key']
         id = 0
         if len(self._OTPKeys) > 0:
-            # print(self._OTPKeys[-1]['id'])
             id = int(self._OTPKeys[-1]['id'])+1
         else:
             id = 1
         self._OTPKeys.append({'id':id,'key':key,'uses':self.maxOtpUse})
+        fd.close()
+        os.remove("./client/otpimport/%s"%files[choice])
         self.menu()
 
     def exportOTP(self):
@@ -122,7 +122,7 @@ class SKKM:
     def purgeOTP(self):
         for i in range(len(self._OTPKeys)):
             tempkey = self._OTPKeys.pop(0)
-            if tempkey['uses'] == 0:
+            if tempkey['uses'] <= 0:
                 tempkey = None
             else:
                 self._OTPKeys.append(tempkey)
@@ -135,12 +135,18 @@ class SKKM:
         for otp in self._OTPKeys:
             print("ID: %s Key hash: %s Uses: %s"%(otp['id'],self.sklib.generateMD5(otp['key']),otp['uses']))
         choice = input("ID: ")
-        choice = int(choice)
+        choice = int(choice or "99")
+        if choice > len(self._OTPKeys):
+            return
         key = None
         for i in range(len(self._OTPKeys)):
             thiskey = self._OTPKeys[i]
             if thiskey['id'] == choice:
                 key = thiskey
+                if key['uses'] == 0:
+                    print("You cannot use this key again...")
+                    input("Press enter to choose another key...")
+                    self.selectOTP()
         return key
 
     def decrementOTP(self,key):
@@ -182,6 +188,7 @@ class SKKM:
         self.keyfile = database
         if not os.path.exists(database):
             raise Exception('Monkey')
+        print("Too many tries will erase your database.")
         for attempt in range(3):
             print("%s tries left."%(3-attempt))
             try:
@@ -189,17 +196,18 @@ class SKKM:
                 db = dbfile.read()
                 passw = self.getMasterPassword()
                 db = self.sklib.AESDecrypt(db,passw)
+                del passw
                 self._keydatabase = json.loads(db)
                 self._clientid = self._keydatabase['clientid']
                 self._privatekey = self.importRSAKey(self._keydatabase['privatekey'])
                 self._publickey = self.importRSAKey(self._keydatabase['publickey'])
                 self._OTPKeys = self._keydatabase['OTPKeys']
-                del passw
                 dbfile.close()
                 break
             except Exception as e:
                 if attempt == 2:
-                    print(e)
+                    self.killSwitch()
+                    # print(e)
                     exit(0)
                 else:
                     print('Incorrect encryption key.\n')
@@ -272,3 +280,11 @@ class SKKM:
         # self.term.move(0, 0)
         passw = getpass.getpass("Choose an encryption password: ")
         return passw
+
+    def killSwitch(self):
+        fd = open('./client/keybase.db','r+')
+        fd.write(self.sklib.generateOTPKey()+self.sklib.generateOTPKey())
+        fd.close()
+        fd = open('./client/keybase.db','w+')
+        fd.write("")
+        fd.close()

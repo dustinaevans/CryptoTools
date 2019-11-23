@@ -80,12 +80,7 @@ class ServerThread(threading.Thread):
         import os
         self.spot = "getAllMessages"
         print(self.spot)
-        # fd = None
-        # if not os.path.exists('./server/%s.msg'):
-        #     fd = open('./server/%s.msg'%data['userid'],'c')
         fd = open('./server/%s.msg'%data['userid'],'r')
-        # print("Opened message file")
-        messages = []
         try:
             print("Starting getall try clause")
             if os.stat('./server/%s.msg'%data['userid']).st_size == 0:
@@ -93,7 +88,6 @@ class ServerThread(threading.Thread):
                 print("Sent empty message")
             else:
                 for line in fd:
-                    # print("Line found")
                     if len(line) <= 1:
                         raise("EmptyLineException")
                     line = line.split('.')
@@ -103,22 +97,23 @@ class ServerThread(threading.Thread):
                     'length':line[2],
                     'hash':line[3].strip()
                     }
-                    messages.append(message)
-                    # print("Sending messages")
-                    self.utility.sendEncrypted(json.dumps(messages))
-                    # print("Sent messages")
+                    message = json.dumps(message)
+                    self.utility.sendEncrypted(message)
+
         except:
-            # print("Sending empty")
-            self.utility.sendEncrypted(json.dumps([]))
+            self.utility.sendEncrypted(json.dumps({}))
             print("Sent empty")
         fd.close()
+        self.utility.sendEncrypted("FIN")
 
     def deleteMessage(self,data):
         self.spot = "deleteMessage"
-        fd = open('./server/%s.msg'%data['userid'],'w')
-        fd.write(self.sklib.generateOTPKey())
-        fd.seek(0)
+        fd = open('./server/%s.msg'%data['userid'],'w+')
+        fd.write(self.sklib.generateOTPKey()['key'])
+        fd.close()
+        fd = open('./server/%s.msg'%data['userid'],'w+')
         fd.write("")
+        fd.close()
 
     def getToken(self):
         token = self.sklib.generateSHA(self.token)

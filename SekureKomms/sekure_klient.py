@@ -6,10 +6,7 @@ from base64 import b64decode,b64encode
 import art
 
 # Tasks:
-# Move all keyfile vars to SKKM
-# Implement SKKM Menu
-# Fix RSA encrypt and decrypt functions
-# Add RSA encrypt/decrypt to negotiateSecurity
+# Add a local delete function
 # Add killswitch
 
 class SekureKlient:
@@ -115,6 +112,7 @@ class SekureKlient:
         queue.close()
 
     def viewOfflineMessages(self):
+        import re
         fd = open('./client/messages.msg','r')
         messagesObj = {}
         index = 1
@@ -123,8 +121,13 @@ class SekureKlient:
         for line in fd:
             messagesObj[str(index)]=line
             index+=1
+        fd.close()
         while choice != 'q':
             print(self.term.clear)
+            if len(messagesObj) == 0:
+                print("No messages...")
+                input("Enter to continue")
+                break
             for i in range(len(messagesObj)):
                 i = str(i+1)
                 rawmessage = json.loads(messagesObj[i])
@@ -135,32 +138,52 @@ class SekureKlient:
                 print("Sender: %s"%message['userid'])
                 print("Length: %s"%len(message['message']))
                 print()
-            choice = self.userInput("Select a message to read. Enter q to go back.")
+            choice = self.userInput("Select a message to read. Enter d and the number to delete a message. Enter q to go back.")
             if choice == 'q':
-                pass
+                break
+            elif re.match(r'd[0-9]',choice):
+                choice = choice[1:]
+                if int(choice) > len(messagesObj):
+                    continue
+                tempmessage = json.loads(messagesObj.pop(choice))
+                print(tempmessage['id'],"deleted.")
+                if int(choice) < len(messagesObj)+1:
+                    tempmessage = messagesObj.pop(str(len(messagesObj)+1))
+                    messagesObj[str(choice)] = tempmessage
+                fd = open('./client/messages.msg','w+')
+                fd.close()
+                fd = open('./client/messages.msg','a+')
+                for i in messagesObj:
+                    fd.write(messagesObj[i])
+                input("Enter to continue")
+                fd.close()
+                continue
+            elif choice not in messagesObj:
+                continue
             else:
-                print(self.term.clear)
-                chosen = json.loads(messagesObj[choice])
-                message = b64decode(chosen['message']).decode().replace("\'","\"").strip()
-                message = json.loads(message)
-                sender = message['userid']
-                recipient = message['rcpt']
-                ctmessage = message['message']
-                for z in range(3):
-                    key = self.skkm.selectOTP()
-                    try:
-                        ptmessage = self.sklib.OTPDecrypt(ctmessage,key)
-                        id = chosen['id']
-                        print(self.term.clear)
-                        print("ID: %s"%id)
-                        print("Sender: %s"%sender)
-                        print("Recipient: %s"%recipient)
-                        print("Message: %s"%ptmessage)
-                        print()
-                        input("Press enter to continue...")
-                        break
-                    except:
-                        print('Incorrect password')
+                pass
+            print(self.term.clear)
+            chosen = json.loads(messagesObj[choice])
+            message = b64decode(chosen['message']).decode().replace("\'","\"").strip()
+            message = json.loads(message)
+            sender = message['userid']
+            recipient = message['rcpt']
+            ctmessage = message['message']
+            for z in range(3):
+                key = self.skkm.selectOTP()
+                try:
+                    ptmessage = self.sklib.OTPDecrypt(ctmessage,key)
+                    id = chosen['id']
+                    print(self.term.clear)
+                    print("ID: %s"%id)
+                    print("Sender: %s"%sender)
+                    print("Recipient: %s"%recipient)
+                    print("Message: %s"%ptmessage)
+                    print()
+                    input("Press enter to continue...")
+                    break
+                except:
+                    print('Incorrect password')
 
     def keyManagementMenu(self):
         self.skkm.menu()
@@ -183,7 +206,7 @@ class SekureKlient:
         }
 
     def connectedMenu(self):
-        choice = self.userInput("ClientID: %s\n1. Sync messages\n2. Delete message (not implemented)\n3. Key management\n4. Disconnect"%self.skkm.getClientID(),True)
+        choice = self.userInput("ClientID: %s\n1. Sync messages\n2. Delete messages\n3. Key management\n4. Disconnect"%self.skkm.getClientID(),True)
         if choice in self.connectedMenuObj:
             self.connectedMenuObj[choice]()
         else:
@@ -201,12 +224,11 @@ class SekureKlient:
         'message':''
         }
         self.utility.sendEncrypted(json.dumps(data))
-        messages = self.utility.recvEncrypted()
-        messages = json.loads(messages)
         newmessagecount = 0
-        if len(messages) > 0:
-            for rawmessage in messages:
-                newmessagecount += self.saveMessage(rawmessage)
+        message = self.utility.recvEncrypted()
+        while message != "FIN":
+            newmessagecount += self.saveMessage(message)
+            message = self.utility.recvEncrypted()
         queue = open('./client/messages.queue','r')
         item = queue.readline()
         messagessent = 0
@@ -243,19 +265,23 @@ class SekureKlient:
 
     def saveMessage(self,message):
         msgids = []
-        msgfile = open('./client/messages.msg','w+')
         newmessagecount = 0
-        for line in msgfile:
-            curmsg = json.loads(line)
-            msgids.append(curmsg['id'])
-        msgfile.close()
-        msgfile = open('./client/messages.msg','a+')
-        if message['id'] in msgids:
+        if len(json.loads(message)) == 0:
             pass
         else:
-            msgfile.write(json.dumps(message)+'\n')
-            newmessagecount += 1
-        msgfile.close()
+            msgfile = open('./client/messages.msg','r+')
+            for line in msgfile:
+                curmsg = json.loads(line)
+                msgids.append(curmsg['id'])
+            msgfile.close()
+            msgfile = open('./client/messages.msg','a+')
+            message = json.loads(message)
+            if message['id'] in msgids:
+                pass
+            else:
+                msgfile.write(json.dumps(message)+'\n')
+                newmessagecount += 1
+            msgfile.close()
         return newmessagecount
 
     def userInput(self,inputmsg,newpage=False):
@@ -267,23 +293,3 @@ class SekureKlient:
 
 
 sk = SekureKlient('./client/keybase.db')
-
-
-# sklib = SekureLib()
-# print(sk.keydatabase)
-# sk.saveKeyDatabase()
-#sk.saveKeyDatabase('./keybase.db')
-# key = sklib.generateOTPKey('asdf')
-# ct = sklib.OTPEncrypt("help me obiwan kinobi, you're my only hope.",key)
-# pt = sklib.OTPDecrypt(ct,key)
-# print(pt)
-# rsakeys = sklib.generateRSAKeyPair()
-# rsa_ct = sklib.RSAEncrypt("help me obiwan kinobi, you're my only hope.",rsakeys[1])
-# rsa_pt = sklib.RSADecrypt(rsa_ct,rsakeys[0])
-# print(rsa_pt)
-# print(sklib.generateAESKey(rsakeys[1]))
-# aes_ct = sklib.AESEncrypt("asdf",'password')
-# print(aes_ct)
-# aes_pt = sklib.AESDecrypt(aes_ct,"password")
-# print(aes_pt)
-# print(sklib.generateHMACSecret())
