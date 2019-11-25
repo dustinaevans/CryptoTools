@@ -6,8 +6,6 @@ from base64 import b64decode,b64encode
 import art
 
 # Tasks:
-# Add a local delete function
-# Add killswitch
 
 class SekureKlient:
     def __init__(self,keyfile):
