@@ -10,7 +10,7 @@ def getTwoPieces(keysize,data):
     retval = [[],[]]
     for count in range(keysize):
         retval[0].append(data[count])
-        retval[1].append(data[count+10])
+        retval[1].append(data[count+keysize])
     return retval
 
 def computeHammingDistance(string1,string2,keysize):
@@ -37,6 +37,7 @@ def determineKeySize(data,minkeysize,maxkeysize):
         results.append([size,distance])
     retval = None
     for result in results:
+        print(result)
         if not retval:
             retval = result
         elif result[1] < retval[1]:
@@ -72,7 +73,7 @@ def calculateIC(textbytes):
             ic += count*(count-1.00)
         return ic/(textlength*(textlength-1.00))
     except Exception as e:
-        print(e)
+        # print(e)
         return 2.5
 
 def getBlocks(textbytes,keysize):
@@ -120,14 +121,15 @@ transposed = transposeBlocks(blocks)
 xorResults = []
 selectedResults = []
 for block in transposed:
-    for char in range(255):
+    for char in range(97,122):
         xor = xorDecrypt(block,char)
         ic = calculateIC(xor)
         xorResults.append({'pt':xor,'score':ic})
-    tempResult = {'pt':'','score':2}
+    tempResult = {'pt':'','score':10}
     for result in xorResults:
         print(result)
         if result['score'] < tempResult['score']:
             tempResult = result
     selectedResults.append(tempResult)
     break
+print(selectedResults)
