@@ -37,7 +37,7 @@ def determineKeySize(data,minkeysize,maxkeysize):
         results.append([size,distance])
     retval = None
     for result in results:
-        print(result)
+        # print(result)
         if not retval:
             retval = result
         elif result[1] < retval[1]:
@@ -58,7 +58,9 @@ def calculateIC(textbytes):
             text = textbytes.decode().lower()
         else:
             pass
-        textlength = 0
+        # textbytes.replace(r"\\x[0-9][0-9]","").replace("\n","").replace("\r","")
+        # print("textbytes",textbytes)
+        textlength = len(textbytes)
         result = []
         letters = 'abcdefghijklmnopqrstuvwxyz'
         for letter in letters:
@@ -73,8 +75,15 @@ def calculateIC(textbytes):
             ic += count*(count-1.00)
         return ic/(textlength*(textlength-1.00))
     except Exception as e:
-        # print(e)
+        print(e)
         return 2.5
+
+def scoreBlock(textbytes):
+    try:
+        textbytes = textbytes.decode()
+        textbytes = textbytes.lower()
+    except:
+        pass
 
 def getBlocks(textbytes,keysize):
     if type(textbytes) == str:
@@ -99,7 +108,7 @@ def transposeBlocks(blocks):
 def xorDecrypt(sourcehex,key):
     if type(sourcehex) == str:
         sourcehex = bytearray.fromhex(sourcehex)
-    dest = bytearray.fromhex('') # just makes an empty bytearray
+    dest = bytearray() # just makes an empty bytearray
     for b in sourcehex:
         dest.append(b^key)
     try:
@@ -110,26 +119,32 @@ def xorDecrypt(sourcehex,key):
 
 data = b64DecodeFile('./6.txt')
 keysize = determineKeySize(data,2,40)
-print("Keysize: %s"%keysize)
 blocks = getBlocks(data,keysize)
-print("Total blocks: %s"%len(blocks))
-print("Expected blocks: %s"%(len(data)//keysize))
-print("Length of each block: %s"%len(blocks[0]))
-print("TextLength: %s"%len(data))
-print("Text length / keysize: %s"%(len(data)/keysize))
+# print("Keysize: %s"%keysize)
+# print("Total blocks: %s"%len(blocks))
+# print("Expected blocks: %s"%(len(data)//keysize))
+# print("Length of each block: %s"%len(blocks[0]))
+# print("TextLength: %s"%len(data))
+# print("Text length / keysize: %s"%(len(data)/keysize))
 transposed = transposeBlocks(blocks)
 xorResults = []
 selectedResults = []
 for block in transposed:
-    for char in range(97,122):
-        xor = xorDecrypt(block,char)
-        ic = calculateIC(xor)
-        xorResults.append({'pt':xor,'score':ic})
+    # print(block)
+    for char in range(255):
+        if char in range(65,91) or char in range(97,123):
+            xor = xorDecrypt(block,char)
+            ic = calculateIC(xor)
+            xorResults.append({'pt':xor,'score':ic,'key':chr(char)})
     tempResult = {'pt':'','score':10}
     for result in xorResults:
         print(result)
         if result['score'] < tempResult['score']:
             tempResult = result
+    print()
+    print()
     selectedResults.append(tempResult)
-    break
-print(selectedResults)
+for result in selectedResults:
+    # print(result)
+    pass
+# print(selectedResults)
