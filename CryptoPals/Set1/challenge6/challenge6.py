@@ -106,45 +106,47 @@ def transposeBlocks(blocks):
     return transposed.tolist()
 
 def xorDecrypt(sourcehex,key):
+    key = ord(key)
     if type(sourcehex) == str:
         sourcehex = bytearray.fromhex(sourcehex)
     dest = bytearray() # just makes an empty bytearray
     for b in sourcehex:
         dest.append(b^key)
-    try:
-        dest = dest.decode()
-    except:
-        pass
     return dest
 
+goodchars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklnmopqrstuvwxyz1234567890"
 data = b64DecodeFile('./6.txt')
-keysize = determineKeySize(data,2,40)
+# keysize = determineKeySize(data,2,40)
+keysize = 4
 blocks = getBlocks(data,keysize)
-# print("Keysize: %s"%keysize)
-# print("Total blocks: %s"%len(blocks))
-# print("Expected blocks: %s"%(len(data)//keysize))
-# print("Length of each block: %s"%len(blocks[0]))
-# print("TextLength: %s"%len(data))
-# print("Text length / keysize: %s"%(len(data)/keysize))
 transposed = transposeBlocks(blocks)
 xorResults = []
 selectedResults = []
 for block in transposed:
-    # print(block)
-    for char in range(255):
-        if char in range(65,91) or char in range(97,123):
-            xor = xorDecrypt(block,char)
-            ic = calculateIC(xor)
-            xorResults.append({'pt':xor,'score':ic,'key':chr(char)})
+    block = bytearray(block)
+    for char in goodchars:
+        xor = xorDecrypt(block,char)
+        xorResults.append({'pt':xor,'score':calculateIC(xor),'key':char})
     tempResult = {'pt':'','score':10}
     for result in xorResults:
-        print(result)
+        # print(result)
         if result['score'] < tempResult['score']:
             tempResult = result
-    print()
-    print()
-    selectedResults.append(tempResult)
-for result in selectedResults:
-    # print(result)
+            selectedResults.append(tempResult)
+for i in selectedResults:
+    print(i)
     pass
 # print(selectedResults)
+
+
+newkey = "AF12"
+newkey = bytearray(newkey,'utf8')
+finalArray = []
+count = 0
+while count < len(data):
+    finalArray.append(data[count]^newkey[count%4])
+    count+=1
+finalstring = ""
+for char in finalArray:
+    finalstring += chr(char)
+print(finalstring)
