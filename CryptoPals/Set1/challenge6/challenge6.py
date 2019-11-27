@@ -7,37 +7,28 @@ def b64DecodeFile(filename):
 
 def getTwoPieces(keysize,data):
     tempdata = bytearray('','utf8')
-    retval = [[],[]]
-    for count in range(keysize):
-        retval[0].append(data[count])
-        retval[1].append(data[count+keysize])
-    return retval
+    piece1 = data[:keysize]
+    piece2 = data[keysize:(keysize*2)]
+    return [piece1,piece2]
 
 def computeHammingDistance(string1,string2,keysize):
-    from bitstring import BitArray
-    if type(string1)==str:
-        string1 = bytearray(string1,'utf8')
-        string2 = bytearray(string2,'utf8')
-    total = 0
-    for count in range(len(string1)):
-        byte1 = BitArray(int=string1[count],length=8)
-        byte2 = BitArray(int=string2[count],length=8)
-        for bit in range(len(byte1)):
-            if byte1[bit] == byte2[bit]:
-                pass
-            else:
-                total+=1
-    return total/keysize
+    return(sum(bin(byte).count('1') for byte in bytearray(string1[i]^string2[i] for i in range(len(string1)))))
 
 def determineKeySize(data,minkeysize,maxkeysize):
     results = []
     for size in range(minkeysize,maxkeysize):
-        pieces = getTwoPieces(size,data)
-        distance = computeHammingDistance(pieces[0],pieces[1],size)
+        score = 0
+        count = 0
+        while count < len(data):
+            piece1 = data[count:size+count]
+            piece2 = data[size+count:size+count*2]
+        # pieces = getTwoPieces(size,data)
+            score += computeHammingDistance(piece1,piece2,size)
+        score /= (len(data)/size)
         results.append([size,distance])
     retval = None
     for result in results:
-        # print(result)
+        print(result)
         if not retval:
             retval = result
         elif result[1] < retval[1]:
@@ -116,8 +107,8 @@ def xorDecrypt(sourcehex,key):
 
 goodchars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklnmopqrstuvwxyz1234567890"
 data = b64DecodeFile('./6.txt')
-# keysize = determineKeySize(data,2,40)
-keysize = 4
+keysize = determineKeySize(data,2,40)
+print('keysize',keysize)
 blocks = getBlocks(data,keysize)
 transposed = transposeBlocks(blocks)
 xorResults = []
@@ -134,19 +125,19 @@ for block in transposed:
             tempResult = result
             selectedResults.append(tempResult)
 for i in selectedResults:
-    print(i)
+    # print(i)
     pass
 # print(selectedResults)
 
 
-newkey = "AF12"
-newkey = bytearray(newkey,'utf8')
-finalArray = []
-count = 0
-while count < len(data):
-    finalArray.append(data[count]^newkey[count%4])
-    count+=1
-finalstring = ""
-for char in finalArray:
-    finalstring += chr(char)
-print(finalstring)
+# newkey = "AF12"
+# newkey = bytearray(newkey,'utf8')
+# finalArray = []
+# count = 0
+# while count < len(data):
+#     finalArray.append(data[count]^newkey[count%4])
+#     count+=1
+# finalstring = ""
+# for char in finalArray:
+#     finalstring += chr(char)
+# print(finalstring)
