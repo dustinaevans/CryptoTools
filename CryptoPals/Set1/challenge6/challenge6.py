@@ -18,17 +18,21 @@ def determineKeySize(data,minkeysize,maxkeysize):
     results = []
     for size in range(minkeysize,maxkeysize):
         score = 0
+        setcount = 0
         count = 0
         while count < len(data):
             piece1 = data[count:size+count]
-            piece2 = data[size+count:size+count*2]
-        # pieces = getTwoPieces(size,data)
-            score += computeHammingDistance(piece1,piece2,size)
-        score /= (len(data)/size)
-        results.append([size,distance])
+            piece2 = data[size+count:size*2+count]
+            # print(count,size,piece1,piece2)
+            try:
+                score += computeHammingDistance(piece1,piece2,size)
+            except:
+                pass
+            count+=size
+            setcount += 1
+        results.append([size,score])
     retval = None
     for result in results:
-        print(result)
         if not retval:
             retval = result
         elif result[1] < retval[1]:
@@ -37,64 +41,11 @@ def determineKeySize(data,minkeysize,maxkeysize):
             pass
     return retval[0]
 
-def calculateIC(textbytes):
-    result = None
-    try:
-        text=""
-        if type(textbytes) == bytes:
-            text = textbytes.decode().lower()
-        elif type(textbytes) == str:
-            text = textbytes.lower()
-        elif type(textbytes) == bytearray:
-            text = textbytes.decode().lower()
-        else:
-            pass
-        # textbytes.replace(r"\\x[0-9][0-9]","").replace("\n","").replace("\r","")
-        # print("textbytes",textbytes)
-        textlength = len(textbytes)
-        result = []
-        letters = 'abcdefghijklmnopqrstuvwxyz'
-        for letter in letters:
-            temp = {'letter':letter,'count':0}
-            for char in text:
-                if char == letter:
-                    temp['count'] += 1.00
-            result.append(temp)
-        ic = 0
-        for thing in result:
-            count = thing['count']
-            ic += count*(count-1.00)
-        return ic/(textlength*(textlength-1.00))
-    except Exception as e:
-        print(e)
-        return 2.5
-
-def scoreBlock(textbytes):
-    try:
-        textbytes = textbytes.decode()
-        textbytes = textbytes.lower()
-    except:
-        pass
-
 def getBlocks(textbytes,keysize):
-    if type(textbytes) == str:
-        textbytes = bytearray(textbytes,'utf8')
-    keysize = keysize
-    array1 = []
-    counter = 0
-    temparray = []
-    for char in textbytes:
-        if (counter%(keysize) == 0) and (counter != 0):
-            array1.append(temparray)
-            temparray = []
-        temparray.append(char)
-        counter+=1
-    return array1
-
-def transposeBlocks(blocks):
-    import numpy as np
-    transposed = np.transpose(blocks)
-    return transposed.tolist()
+    blocks = [[0]]*keysize
+    for i in range(len(blocks)):
+        blocks[i] = bytearray(textbytes[i::keysize])
+    return blocks
 
 def xorDecrypt(sourcehex,key):
     key = ord(key)
@@ -105,39 +56,74 @@ def xorDecrypt(sourcehex,key):
         dest.append(b^key)
     return dest
 
-goodchars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklnmopqrstuvwxyz1234567890"
+def scoreDecryptedBlock(block):
+    ascii_text_chars = list(range(97, 122)) + [32]
+    return sum([ x in ascii_text_chars for x in block])
+
+goodchars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklnmopqrstuvwxyz1234567890 :"
 data = b64DecodeFile('./6.txt')
 keysize = determineKeySize(data,2,40)
 print('keysize',keysize)
 blocks = getBlocks(data,keysize)
-transposed = transposeBlocks(blocks)
-xorResults = []
 selectedResults = []
-for block in transposed:
+for block in blocks:
+    xorResults = []
     block = bytearray(block)
     for char in goodchars:
         xor = xorDecrypt(block,char)
-        xorResults.append({'pt':xor,'score':calculateIC(xor),'key':char})
-    tempResult = {'pt':'','score':10}
+        xorResults.append({'pt':xor,'score':scoreDecryptedBlock(xor),'key':char})
+    tempResult = {'pt':'','score':0}
     for result in xorResults:
-        # print(result)
-        if result['score'] < tempResult['score']:
+        if result['score'] > tempResult['score']:
             tempResult = result
-            selectedResults.append(tempResult)
+    selectedResults.append(tempResult)
+key = ""
 for i in selectedResults:
-    # print(i)
-    pass
-# print(selectedResults)
+    key += i['key']
+print(key)
+key = bytearray(key,'utf8')
+decryptedFile = ""
+count = 0
+for i in range(len(data)):
+    decryptedFile += chr(data[i]^key[i%len(key)])
+print(decryptedFile)
 
 
-# newkey = "AF12"
-# newkey = bytearray(newkey,'utf8')
-# finalArray = []
-# count = 0
-# while count < len(data):
-#     finalArray.append(data[count]^newkey[count%4])
-#     count+=1
-# finalstring = ""
-# for char in finalArray:
-#     finalstring += chr(char)
-# print(finalstring)
+
+
+
+
+
+
+
+# def calculateIC(textbytes):
+#     result = None
+#     try:
+#         text=""
+#         if type(textbytes) == bytes:
+#             text = textbytes.decode().lower()
+#         elif type(textbytes) == str:
+#             text = textbytes.lower()
+#         elif type(textbytes) == bytearray:
+#             text = textbytes.decode().lower()
+#         else:
+#             pass
+#         # textbytes.replace(r"\\x[0-9][0-9]","").replace("\n","").replace("\r","")
+#         # print("textbytes",textbytes)
+#         textlength = len(textbytes)
+#         result = []
+#         letters = 'abcdefghijklmnopqrstuvwxyz'
+#         for letter in letters:
+#             temp = {'letter':letter,'count':0}
+#             for char in text:
+#                 if char == letter:
+#                     temp['count'] += 1.00
+#             result.append(temp)
+#         ic = 0
+#         for thing in result:
+#             count = thing['count']
+#             ic += count*(count-1.00)
+#         return ic/(textlength*(textlength-1.00))
+#     except Exception as e:
+#         print(e)
+#         return 2.5
