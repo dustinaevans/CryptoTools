@@ -41,7 +41,9 @@ def recvProfile(profile):
     profile = parseKV(profile)
     print(profile)
 
-for i in range(20):
+for i in range(13):
     profile = sendProfile("A"*i)
-    print([profile[x:x+16] for x in range(len(profile)/16)])
+    print(profile)
+    print([profile[i:i+32] for i in range(0, len(profile), 32)],i)
+    recvProfile(profile)
 # print(sendProfile("dustine@turnkeysol.com"))
