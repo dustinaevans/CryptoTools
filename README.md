@@ -34,3 +34,5 @@ Note that these matches do not provide an guarantee that the word found IS the w
 ## DictionaryTrainer
 Trains a dictionary against a text file
 See the readme.md in DictionaryTrainer for additional information.
+
+<!-- test -->
